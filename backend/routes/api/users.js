@@ -1,11 +1,23 @@
 const express = require("express");
 const router = express.Router();
-
-const User = require('../../models/User');
 const bcrypt = require('bcryptjs');
-
+const User = require('../../models/User');
 const jwt = require('jsonwebtoken'); /* (1) */
 const keys = require('../../config/keys');
+const passport = require('passport');
+
+const validateRegisterInput = require('../../validation/register');
+const validateLoginInput = require('../../validation/login');
+
+router.get("/test", (req, res) => res.json({ msg: "This is the users route" }));
+
+router.get('/current', passport.authenticate('jwt', {session: false}), (req, res) => {
+  res.json({
+    id: req.user.id,
+    handle: req.user.handle,
+    email: req.user.email
+  });
+})
 
 router.post('/register', (req, res) => { /* (2) */
     const { errors, isValid } = validateRegisterInput(req.body);
@@ -84,8 +96,6 @@ router.post('/login', (req, res) => { /* (4) */
         });
     });
 });
-
-router.get("/test", (req, res) => res.json({ msg: "This is the users route" }));
 
 module.exports = router;
 

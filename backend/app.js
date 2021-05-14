@@ -3,6 +3,7 @@ const app = express();
 const mongoose = require('mongoose');
 const db = require('./config/keys').mongoURI;
 const bodyParser = require('body-parser');
+const passport = require('passport'); /* (5) */
 
 const users = require("./routes/api/users");
 const tweets = require("./routes/api/tweets");
@@ -13,6 +14,9 @@ mongoose
   .catch(err => console.log(err));
 
 app.get("/", (req, res) => res.send("Hello World")); /* (1) */
+
+app.use(passport.initialize());
+require('./config/passport')(passport);
 
 app.use(bodyParser.urlencoded({ extended: false })); /* (2) */
 app.use(bodyParser.json());
@@ -43,5 +47,14 @@ Locally our server will now run on localhost:5000.
 the path. Do so by adding the following line to your file.
 
 This will also log a success message to the console when our server is 
-running successfully. 
+running successfully.
+
+(5) Most of the logic for our login functionality is complete. However, we will
+need to use Passport to authenticate our token and construct private routes.
+Recall that we set up our `register` and `login` routes to return `jwt` web
+token in the response, and we will be saving that using our application on the
+frontend. Eventually, we will want to send the web token back in the header of
+every API request to our backend. Passport is able to authenticate that token
+using different "strategies". For this project, we will be using `JwtStrategy`
+to authenticate our web token.
 */

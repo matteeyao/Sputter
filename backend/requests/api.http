@@ -4,9 +4,10 @@ POST http://localhost:5000/api/users/register
 Content-Type: application/json
 
 {
-    "handle": "mattypatty",
-    "email": "mattypatty@sputter.io",
-    "password": "password"
+    "handle": "jimmyjohns",
+    "email": "jimmyjohns@sputter.io",
+    "password": "password",
+    "password2": "password"
 }
 
 ### Login a user
@@ -15,6 +16,6 @@ POST http://localhost:5000/api/users/login
 Content-Type: application/json
 
 {
-    "handle": "mattypatty",
+    "email": "mattypatty@sputter.io",
     "password": "password"
 }

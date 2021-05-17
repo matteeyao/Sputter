@@ -128,7 +128,78 @@ A dynamic schema allows you to start with a basic schema that can be updated eas
 
 Recall that the document data structure is JSON-like. It is able to store a variety of different data types, but more importantly, it can be directly interfaced within our backend code. You no longer need to use an ORM (e.g. Active Record) to map data from a database to an object that you can easily interface with. This speeds up the development process as you have one less thing to worry about.
 
+<br />
+
 ---
 
+<br />
 
+## Mongoose
 
+Mongoose is an object data modeling (ODM) library for MongoDB and Node.js. It provides an API to model the data in our database. You can think of it as a NoSQL equivalent of an ORM. To relate it to a technology that you have used before, Mongoose serves the same purpose for MongoDB that Active Record serves for Rails.
+
+### Why Mongoose?
+
+Now, you may have noticed that in the MongoDB reading, we mentioned that a benefit of MongoDB is that we don't need to use an ORM. So why are we asking you to use one?
+
+The main reason is to make it an easier transition from a relational database to a non-relational database. Using Mongoose makes it similar to the workflow you used during your Full Stack Project. You can define a schema to work with your collections. More importantly, Mongoose gives you some nice methods to define validations on your schema as well! Just remember that it is not necessary to use Mongoose to do these things, it just makes it a little easier to do so.
+
+<br />
+
+---
+
+<br />
+
+## Express
+
+Express is a web application framework for Node. It provides us with tools for the following things:
+
+1. Write handlers to respond to different HTTP verb requests at different URL paths.
+
+    + Similar to defining routes and controller methods in our Fullstack Projects, you will use Express to turn your backend into an API that your frontend will use to retrieve information.
+
+2. Combine w/ view rendering engines to generate responses by passing data to templates.
+
+    + Express can also function similar to Rails by serving up 'views' as a response to a request. However, your frontend will be handled primarily by React and Redux so you will not be using this functionality.
+
+3. Set common web application settings like which port to use.
+
+    + This is probably not something that you have done when using Rails.
+
+4. Add middleware at any point within the request handling pipeline.
+
+    + Express middleware is similar to Rails controller callbacks, such as `before_action` or `after_action`. They allow you to apply some code or logic to HTTP requests or responses at any point during the request pipeline of your app.
+
+It is important to note that Express is a very minimalist library, so there is a huge amount of middleware that has been created by other developers to solve specific web development problems. For example, you will be using several pieces of middleware to help implement user auth for your MERN app.
+
+<br />
+
+---
+
+<br />
+
+## React
+
+### Axios
+
+You have already been introduced to React and Redux so we will not be reiterating what it is here. However, you will be using a new technology, Axios, in the frontend of your app.
+
+Axios is a promise based HTTP client that can be used in both the browser and a Node environment. This essentially means that you can use the Axios library to make XMLHttpRequests from the browser or HTTP requests from your Node environment.
+
+You will mainly be utilizing Axios to make your frontend AJAX calls instead of jQuery's `$.ajax` method. We recommend you look through the [Axios documentation](https://github.com/axios/axios). You'll need to reference it during the upcoming project!
+
+<br />
+
+---
+
+<br />
+
+## Node
+
+### What is Node.js?
+
+Node.js is a JavaScript runtime environment. In other words, it is an environment where you can run application code. JavaScript was originally designed only to be used in browsers. Node allows us to utilize JavaScript code outside of the browser in order to build network applications. You have already used Node to help manage your React app's dependencies as well as run webpack to bundle your JavaScript. Now you will be taking it one step further and using it as a runtime for your server to have a truly full-stack JavaScript app!
+
+The main benefit of using Node, is that we can take advantage of JavaScript's asynchronicity.
+
+Normally, your server would not be able to process two requests at the same time. In other words, the server cannot process an additional request until the first is completed. This problem is called *blocking*. There are ways that blocking can be handled, such as multi-threading, however Node.js does not use multi-threading to solve the blocking problem. Node.js makes it easy for you to allow multiple events to occur concurrently by utilizing JavaScript's asynchronicity. Each event would be handled by JavaScript's event loop just as asynchronous functions would in a browser.

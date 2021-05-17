@@ -19,3 +19,13 @@ Content-Type: application/json
     "email": "mattypatty@sputter.io",
     "password": "password"
 }
+
+### Post a tweet
+
+POST http://localhost:5000/api/tweets/
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYTFlM2E4MTk2MGRhNjkyZjhjYzQ1NyIsImhhbmRsZSI6Im1hdHR5cGF0dHkiLCJlbWFpbCI6Im1hdHR5cGF0dHlAc3B1dHRlci5pbyIsImlhdCI6MTYyMTIyNDI0MywiZXhwIjoxNjIxMjI3ODQzfQ.f05mlALEvT_whQ6AW9cKHcrimk8oh7YggtJTbBJe8AI
+
+{
+    "text": "This is the third tweet"
+}

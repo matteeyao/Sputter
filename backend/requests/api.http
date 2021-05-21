@@ -29,3 +29,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYTFlM2E4M
 {
     "text": "This is the third tweet"
 }
+
+### Get a user's tweets
+GET http://localhost:5000/api/tweets/user/60a1e3cf1960da692f8cc459
+Content-Type: application/json
+
+### Get a specific tweet by id
+GET http://localhost:5000/api/tweets/60a1eb001f5d867125b8c9f2
+Content-Type: application/json

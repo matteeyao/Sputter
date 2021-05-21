@@ -7,7 +7,7 @@ class MainPage extends React.Component {
       <div>
         <p>A Twitter Clone</p>
         <footer>
-          Copyright &copy; 2019 Chirper
+          Copyright &copy; 2021 Sputter
         </footer>
       </div>
     );

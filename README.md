@@ -1,12 +1,3 @@
-
-
-
-</br>
-
----
-
-</br>
-
 ## React Setup
 
 Start by setting up the frontend of the application:

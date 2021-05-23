@@ -52,13 +52,13 @@ Although you might not realize it, you likely make use of graphs on a daily basi
 
 Let's take a look at a simple graph which might represent users and follows on Twitter:
 
-![](./backend/assets/images/directed-graph.png)
+![](assets/images/directed-graph.png)
 
 The set of nodes in this graph is `N = {F, A, N, B, D}`. The set of edges is `E = {FN, NF, FA, AB, BF, BD, DA, NB}`. The graph represented here is called a *directed graph* b/c each edge has a direction associated w/ it. This makes sense for an application like Twitter since, although user `F` follows user `A`, it does not necessarily mean that user `A` follows user `F`. This is different from an application like Facebook, where connected users are 'friends' of each other. In this case, the graph would be undirected and the edges would be drawn w/o arrows.
 
 A *tree* is simply a directed graph w/ no cycles, meaning that you cannot trace a path from any node that leads back to itself. Trees are hierarchical data structures w/ a signature pyramid appearance:
 
-![](./backend/assets/images/binary-tree.png)
+![](assets/images/binary-tree.png)
 
 ## Graphs and GraphQL
 
@@ -190,3 +190,495 @@ RESTful architecture has catalyzed the growth of the Internet, but lends itself 
 ---
 
 </br>
+
+# JSON
+
+Server responses in GraphQL are returned in JSON format. JSON (JavaScript Object Notation) is a self describing, data interchange format designed to be easily parse-able by both humans and machines. It is based on the JavaScript language, and quickly gained prominence to replace XML as the standard data interchange format on the web. Data exchanged between a browser and server must be text, and JSON consists only of text. Any JavaScript object can easily be converted to JSON w/ built-in methods, and vice versa.
+
+The syntax of JSON is very simple to follow:
+
+* Data is in name/value pairs
+
+* Data is separated by commas
+
+* Curly braces hold objects
+
+* Square brackets hold arrays
+
+* String values must be written w/ double quotes
+
+Let's take a look at an example of a JSON object:
+
+```json
+{
+  "name": "Jeff Bezos",
+  "age": 55,
+  "children": 4,
+  "height": 5.6,
+  "wealth": 137000000000,
+  "commendations": ["National Merit Scholar", "Silver Knight Award"]
+}
+```
+
+We can also nest JSON data as deeply as we would like:
+
+```json
+{
+    "name": "Jeff Bezos",
+    "age": 55,
+    "children": 4,
+    "height": 5.6,
+    "wealth": 137000000000,
+    "commendations": ["National Merit Scholar", "Silver Knight Award"],
+    "companies": {
+        "Amazon": {
+            "founded": 1994,
+            "description": "Online marketplace",
+            "missionStatement": "Our vision is to be earth's most customer-centric company; to build a place where people can come to find and discover anything they might want to buy online."
+        },
+        "blueOrigin": {
+            "founded": 2000,
+            "description": "Space travel",
+            "missionStatement": "We're committed to building a road to space so our children can build the future."
+        }
+    }
+}
+```
+
+You must convert your JSON object to JavaScript before you can make use of the data:
+
+```js
+let myJSON = '{"name": "Dr. Seuss", "books": ["Green Eggs and Ham", "Fox in Socks", "Horton Hears a Who!"]}';
+
+let myObj = JSON.parse(myJSON);
+
+console.log(myObj);
+
+// >> {name: "Dr. Seuss", books: ["Green Eggs and Ham", "Fox in Socks", "Horton Hears a Who!"]}
+```
+
+Now you can manipulate your data as you would any other JavaScript object.
+
+We also need to convert a JavaScript object before we can send it to the server:
+
+```js
+let myObj = {name: "Dr. Seuss", books: ["Green Eggs and Ham", "Fox in Socks", "Horton Hears a Who!"]};
+
+let myJSON = JSON.stringify(myObj);
+
+console.log(myJSON);
+
+// >> '{"name":"Dr. Seuss","books":["Green Eggs and Ham","Fox in Socks","Horton Hears a Who!"]}'
+```
+
+We'll get a lot of practice using JSON in the upcoming sections. Just keep in mind that a JSON object is not a JavaScript object, but that we can easily coerce JavaScript objects to JSON in order to send information through HTTP requests.
+
+</br>
+
+---
+
+</br>
+
+# GraphQL Architecture
+
+## Architectural Use Cases
+
+1. GraphQL server *with a connected database*
+
+  + often used for *greenfield projects*
+
+  + uses single web server that implements GraphQL
+
+  + server resolves queries and constructs response w/ data that it fetches from the database
+
+![](assets/images/existing-system.png)
+
+2. GraphQL server to *integrate existing system*
+
+  + compelling use case for companies w/ legacy infrastructures and many different APIs
+
+  + GraphQL can be used to *unify* existing systems and hide complexity of data fetching logic
+
+  + the server works w/ any data source (databases, web services, 3rd party APIs, ...)
+
+![](assets/images/connected-database.png)
+
+3. *A hybrid approach* with a *connected database* and *integration of existing system*
+
+![](assets/images/hybrid-approach.png)
+
+GraphQL is transport layer agnostic → can be used w/ any available network protocol (TCP, WebSockets). GraphQL works w/ any database or data format.
+
+## *Resolver* Functions
+
+* GraphQL queries/mutations consist of a set of *fields*
+
+* GraphQL server *has one `resolver function` per field*
+
+* the purpose of each resolver is to retrieve the data for its corresponding field
+
+![](assets/images/resolver-function.png)
+
+## GraphQL Clients
+
+* GraphQL is great for frontend developers as data fetching complexity can be pushed to the server-side
+
+* client doesn't care where data is coming from
+
+* opportunity for *new abstractions* on the frontend
+
+### From imperative to declarative data fetching
+
+#### **Imperative Data Fetching**
+
+1. Construct and send HTTP request (e.g. with fetch in JavaScript)
+
+2. Receive and parse server response
+
+3. store data locally (in memory or persisted)
+
+4. display information in the UI
+
+#### **Declarative Data Fetching**
+
+1. Describe data requirements
+
+2. Display information in the UI
+
+3. store data locally (in memory or persisted)
+
+4. display information in the UI
+
+</br>
+
+---
+
+</br>
+
+# Basic Queries
+
+GraphQL Root query example:
+
+```js
+query findLuke {
+  person(id: "cGVvcGx1OjE=") {
+    name,
+    eyeColor,
+    mass
+  }
+}
+```
+
+```json
+{
+  "data": {
+    "person": {
+      "name": "Luke Skywalker",
+      "eyeColor": "blue",
+      "mass": 77
+    }
+  }
+}
+```
+
+</br>
+
+---
+
+</br>
+
+# Inline Fragments and Interfaces
+
+## Interfaces
+
+The GraphQL type system supports interfaces, an abstract type that include a certain set of fields that a type must include to implement the interface. This is best explained by an example.
+
+Suppose we are writing a GraphQL application to display information on characters in the Harry Potter universe. We might have different GraphQL types to account for the different types of beings in our universe - let's say `Muggles` and `Wizards`. However, when we query for a character, we might simply want to look up a `Character` by ID or name instead of having to be specific about their magical ability. In this case, we would define an interface:
+
+```js
+interface Character {
+  id: ID!
+  name: String!
+}
+```
+
+Then, we can use our newly created interface to define our `Muggle` and `Wizard` types:
+
+```js
+type Muggle implements Character {
+  id: ID!
+  name: String!
+}
+
+type Wizard implements Character {
+  id: ID!
+  name: String!
+  house: [House]!
+}
+```
+
+As you can see, each type has all of the fields specified by `Character`, but the `Wizard` type adds its own field - `house` - to its definition. Now we can return a generic `Character` when we query for an individual from the frontend, by we're going to run into some trouble w/ this custom field. We can solve this w/ an inline fragment.
+
+## Implementing Inline Fragments
+
+Let's imagine we are writing this query to find a character by ID. It would look something like:
+
+```js
+query FindCharacter {
+  character(id: 117) {
+    name
+    house
+  }
+}
+```
+
+Running this query would result in an error:
+
+```
+"Cannot query field \"house\" on type \"Character\". Did you mean to use an inline fragment on \"Wizard\"?",
+```
+
+Since the `character` field returns a generic character, GraphQL may be querying either for a `Muggle` or a `Wizard` depending on the argument. The problem is the `house` field - we are only allowed to query for fields listed on the `Character` type.
+
+So, how do we access the house information when we query for a wizard? We can solve this problem w/ an inline fragment:
+
+```js
+query FindCharacter {
+  character(id: 117) {
+    name
+    // this allow us to only get house information if this character is a Wizard
+    ... on Wizard {
+      house
+    }
+  }
+}
+```
+
+Now, since we have specified that we should only return the `house` field for `Wizard` types, we can run our query and retrieve the expected data.
+
+</br>
+
+---
+
+</br>
+
+# Nested Queries
+
+```js
+query findLuke {
+  person(id: "cGVvcGx1OjE=") {
+    name,
+    eyeColor,
+    mass,
+    species {
+      name,
+      classification,
+      averageHeight
+    },
+    homeworld {
+      name,
+      diameter,
+      population
+    }
+  }
+}
+```
+
+```json
+{
+  "data": {
+    "person": {
+      "name": "Luke Skywalker",
+      "eyeColor": "blue",
+      "mass": 77
+    },
+    "species": {
+      "name": "Human",
+      "classification": "mammal",
+      "averageHeight": 180
+    },
+    "homeworld": {
+      "name": "Tatooine",
+      "diameter": 10465,
+      "population": 200000
+    }
+  }
+}
+```
+
+</br>
+
+---
+
+</br>
+
+# Variables and Directives
+
+Query:
+
+```js
+query findPerson($id: ID, $withSpecies: Boolean!) {
+  person(id: $id) {
+    name,
+    eyeColor,
+    mass,
+    species @include(if: $withSpecies) { // @skip is another Directive
+      name,
+      classification,
+      averageHeight
+    },
+    homeworld {
+      name,
+      diameter,
+      population
+    }
+  }
+}
+```
+
+Query Variables:
+
+```js
+{
+  "id": "cGVvcGxlOjE=",
+  "withSpecies": false
+}
+```
+
+Query Result:
+
+```json
+{
+  "data": {
+    "person": {
+      "name": "Luke Skywalker",
+      "eyeColor": "blue",
+      "mass": 77
+    },
+    "species": {
+      "name": "Human",
+      "classification": "mammal",
+      "averageHeight": 180
+    },
+    "homeworld": {
+      "name": "Tatooine",
+      "diameter": 10465,
+      "population": 200000
+    }
+  }
+}
+```
+
+</br>
+
+---
+
+</br>
+
+# Aliases and Fragments
+
+```js
+query ComparePlanets($withTerrains: Boolean!) {
+  tatooine: planet(id: "cGxhbmV0czox") {
+    ...FindPlanet
+  },
+  alderaan: planet(id: "cGxhbmV0czoy") {
+    ...FindPlanet
+  }
+}
+
+fragment FindPlanet on Planet {
+  name,
+  diameter,
+  gravity,
+  population,
+  climates,
+  terrains @include(if: $withTerrains)
+}
+```
+
+Query variables:
+
+```js
+{
+  "withTerrains": false
+}
+```
+
+```json
+{
+  "data": {
+    "tatooine": {
+      "name": "Tatooine",
+      "diameter": 10456,
+      "gravity": "1 standard",
+      "population": 200000,
+      "climates": [
+        "arid"
+      ],
+      "terrains": [
+        "desert"
+      ]
+    },
+    "alderaan": {
+      "name": "Alderaan",
+      "diameter": 12500,
+      "gravity": "1 standard",
+      "population": 200000000,
+      "climates": [
+        "temperate"
+      ],
+      "terrains": [
+        "grasslands",
+        "mountains"
+      ]
+    }
+  }
+}
+```
+
+</br>
+
+---
+
+</br>
+
+# Mutations Introduction
+
+When developers discuss GraphQL, they usually do so in terms of data fetching. So far, we have only learned how to read information from the database. Since it's pretty likely that you'll also want to create, update, and destroy records, you'll need to learn how to write mutations.
+
+The syntax for a mutation is straightforward:
+
+```js
+mutation {
+  mutationName(key1: "val1", key2: "val2", ...) {
+    // These arguments specify the information to be returned from the backend
+    key1,
+    key2,
+    association {
+        id,
+        name,
+        ...
+    }
+  }
+}
+```
+
+When we write queries, we can just use a pair of curly braces - we don't necessarily need to specify the query type. However, when using mutations, as you can see on the first line of the snippet above, we must define that we are using a mutation so that GraphQL knows what we are trying to do. Though just like queries, we can name our mutations anything we like.
+
+</br>
+
+---
+
+</br>
+
+# Object & Scalar Types
+
+In GraphQL, there are two different kinds of types.
+
+1. `Scalar` types represent concrete units of data. The GraphQL spec has five predefined scalars: as `String`, `Int`, `Float`, `Boolean`, and `ID`.
+
+2. `Object` types have fields that express the properties of that type and are composable. Examples of object types are a `User` or `Post`, and all the the resources your project may have.
+
+In every GraphQL schema, you can define your own scalar and object types. An often cited example for a custom scalar would be a `Date` type where the implementation needs to define how that ype is validated, serialized, and deserialized.
+

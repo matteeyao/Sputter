@@ -682,3 +682,273 @@ In GraphQL, there are two different kinds of types.
 
 In every GraphQL schema, you can define your own scalar and object types. An often cited example for a custom scalar would be a `Date` type where the implementation needs to define how that ype is validated, serialized, and deserialized.
 
+</br>
+
+---
+
+</br>
+
+# Connecting Express to GraphQL
+
+## ExpressGraphQL
+
+The simplest way to run a GraphQL API server is to use Express. You will need to install two additional dependencies to your Express application: `express-graphql` and `graphql`. The Express middleware `express-graphql` allows us to quickly and easily setup a GraphQL HTTP server on to an HTTP endpoint (usually called "/graphql"). Once it is configured, `express-graphql` will allow us to define a GraphQL schema and spin up the GraphiQL interface which we can use to write test queries on our database.
+
+## Configuration
+
+As a reminder GraphQL does not replace your backend or server or any of the essential parts of your application. GraphQL will make up just one small piece of your application.
+
+Below is a very simple example setting up a server using Express and the `express-graphql` package:
+
+```js
+const express = require('express');
+const app = express();
+// note the capitalization!
+const expressGraphQL = require('express-graphql');
+
+// This adds an additional step to see if the incoming request is intended for the graphql route.
+// If it is -  that request is handed off to GraphQL. GraphQL will take care of the request
+// before handing the response back to Express.
+app.use('/graphql', expressGraphQL({
+  // this allows us to use the GraphiQL tool to make queries against our development environment
+  graphiql: true,
+}));
+
+app.listen(5000, () => {
+  console.log('Running a GraphQL API server at localhost:5000/graphql');
+});
+```
+
+This simple setup will return an error: `GraphQL middleware options must contain a schema`. Right now the only argument we passed in the `expressGraphQL` middleware was `graphql: true`. This error is letting us know that when we setup our `expressGraphQL` middleware on the '/graphql' route we *need* to include a `schema` argument. We'll be covering GraphQL schemas more in depth in a minute - but for now what we need to know is that the schema is how GraphQL knows how to enter your database yo get the information it needs.
+
+So let's fix our error! We'll utilize the `buildSchema` function for this small example. Though in the future you'll be creating much more complex schemas for your applications using the `GraphQLSchema` object directly. Here is the setup for creating a schema and connecting it to GraphQL:
+
+```js
+const expressGraphQL = require('express-graphql');
+const graphql = require('graphql');
+// we are requiring graphql here because we need it for the buildSchema function.
+const { buildSchema } = graphql;
+
+// The buildSchema function can take in a string and outputs a GraphQLSchema object
+const schema = buildSchema(`
+  type Query {
+    hello: String
+  }
+`);
+
+// We are only including the root resolver for this demonstration to get a response without having a backend
+const root = {
+  hello: () => {
+    return 'Hello world!';
+  },
+};
+
+
+app.use('/graphql', expressGraphQL({
+  graphiql: true,
+  // register our schema
+  schema: schema,
+  // here we setup the root to have our response without a backend
+  rootValue: root
+}));
+```
+
+Here is what it looks like when we put it all together!
+
+```js
+const express = require('express');
+const expressGraphQL = require('express-graphql');
+const { buildSchema } = require('graphql');
+
+// Construct a schema, using GraphQL schema language
+const schema = buildSchema(`
+  type Query {
+    hello: String
+  }
+`);
+
+// The root provides a resolver function for each API endpoint
+const root = {
+  hello: () => {
+    return 'Hello world!';
+  },
+};
+
+const app = express();
+app.use('/graphql', expressGraphQL({
+  schema: schema,
+  rootValue: root,
+  graphiql: true,
+}));
+
+app.listen(5000, () => {
+  console.log('Running a GraphQL API server at localhost:5000/graphql');
+});
+```
+
+Now if we start up the server and head to `localhost:5000/graphql` and query for `hello`:
+
+```
+{
+  hello
+}
+```
+
+You'll get the response of:
+
+```json
+{
+  "data": {
+    "hello" : "Hello world!"
+  }
+}
+```
+
+Meaning that everything worked! We successfully hooked up GraphQL to our Express server.
+
+</br>
+
+---
+
+</br>
+
+# GraphQL Schemas
+
+The schema of a GraphQL application is the very heart of configuring GraphQL inside your application. The schema file contains all the knowledge for telling GraphQL exactly what your application data looks like, including what properties your data has, and how those properties relate to each other.
+
+The `graphql/type` module is responsible for defining GraphQL types and schema. You can import from either the `graphql/type` module, or from the root `graphql` module itself. Since you've worked w/ a GraphQL query before, you know that the GraphQL query language is all about selecting fields on objects (like selecting the `name` field from a User). The most basic components of a GraphQL schema are object types, which represent a kind of object you can fetch from your database, and what fields it has on it. Most of the types in your schema will be object types.
+
+In the example below we will be creating the schema for an application that just has Users. Users will have an `id`, a `name`, and a `favoriteNumber`. In order to connect GraphQL to our User we first need to inform GraphQL where out user lives, and the data the User has attached to it. We do this by creating a `GraphQLObjectType` which tells GraphQL what a user looks like.
+
+```js
+// schema.js
+
+const graphql = require("graphql");
+// capitalization is important!
+const { GraphQLObjectType, GraphQLString, GraphQLInt } = graphql;
+
+// By creating a GraphQLObjectType we are telling GraphQL what a user looks like.
+const UserType = new GraphQLObjectType({
+  // the name property describes the type we are defining.
+  // Since we are defining a UserType the name will be UserType.
+  name: "UserType",
+  // fields is THE MOST important property - it refers to everything this Type will be able to return to you.
+  // Which means all of the data associated with this type in the database.
+  // If you don't have a field then you don't have returned data.
+
+  //For our User the fields are id, name, and favoriteNumber.
+  fields: {
+    // we have to tell GraphQL what type of data each of these fields
+    // returned from the database are.
+    id: { type: GraphQLString },
+    name: { type: GraphQLString },
+    favoriteNumber: { type: GraphQLInt }
+  }
+});
+```
+
+## Root Queries
+
+Awesome we've described what a User looks like - but GraphQL still doesn't know how to enter our database and get to our Users. GraphQL has no *entrypoint* into our data yet. We can solve this by writing a `Root Query`. The GraphQL docs describe a Root Query as "a type that represents all of the possible entry points into the GraphQL API". The Root Query is what allows us to jump into the graph of data we are now in the middle of creating.
+
+Every root query will have a *resolve* function which will tell GraphQL how to execute that Root Query. Meaning, the resolve function will be where we tell GraphQL how to get data from our database. Like its name, `resolve` is meant to *resolve* a query by telling GraphQL where to find data.
+
+It'll make more sense when we put it into action:
+
+```js
+// we are using lodash for this example because of the nifty find function
+const _ = require("lodash");
+
+// since we don't have a database setup yet we'll hardcode
+// some data to be fetched here:
+const users = [
+  { id: "5", name: "Jet", favoriteNumber: 5 },
+  { id: "7", name: "Spike", favoriteNumber: 17 }
+];
+
+const RootQuery = new GraphQLObjectType({
+  name: "RootQueryType",
+  /* The purpose of the root query is to land on a specific node in our graph */
+  fields: {
+    /* So we are telling GraphQL if a query is looking for a 'user' we will be 
+    returning the UserType we just created. */
+    user: {
+      type: UserType,
+      /* Args is short for arguments → letting GraphQL know that the following 
+      arguments will be passed in with this query. */
+      args: { id: { type: GraphQLString } },
+      /* The resolve function will take in the `parentValue` and the arguments 
+      being passed the original query. Ignore parentValue for now. */
+      resolve(parentValue, args) {
+        /* Use Lodash's `find` to walk through our users to find the first user 
+        with the id we passed in. */
+        return _.find(users, { id: args.id });
+      }
+    }
+  }
+});
+```
+
+Now that we have a Root Query setup you can create a `GraphQLSchema`. A `GraphQLSchema` takes in a Root Query and returns a `GraphQLSchema` instance.
+
+The implementation for this is pretty simple:
+
+```js
+/* Add our GraphQLSchema to the list of things we are importing */
+const { GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLSchema } = graphql;
+
+/* Below we are creating a new Schema instance using the Root Query above. 
+We want to make sure we export our Schema. Then we can later import it into 
+our `expressGraphQL` middleware */
+module.exports = new GraphQLSchema({
+  query: RootQuery
+});
+```
+
+The final step is to input your exported Schema into your `expressGraphQL` middleware:
+
+```js
+// server/index.js
+const express = require("express");
+const expressGraphQL = require("express-graphql");
+const schema = require("./schema");
+
+const app = express();
+
+/* Then we just have to register our schema with the expressGraphQL middleware */
+app.use(
+  "/graphql",
+  expressGraphQL({
+    schema: schema,
+    graphiql: true
+  })
+);
+
+app.listen(5000, () => {
+  console.log("Running a GraphQL API server at localhost:5000/graphql");
+});
+```
+
+There you have it! We can test this by heading to `localhost:5000/graphql` and
+entering something like the following query:
+
+```js
+{
+	user(id: "5") {
+	  id
+    name
+    favoriteNumber
+	}
+}
+```
+
+We've just covered the basics of how to setup a GraphQL schema and connect it to Express. The general flow you'll follow going forward is that you'll create a `Type` for each of the tables in your database and then create `fields` in the `rootQuery` to be able to access those types. Here is a GraphQL [cheatsheet](https://devhints.io/graphql) for further reference on schema syntax.
+
+</br>
+
+---
+
+</br>
+
+# Writing Mutations
+

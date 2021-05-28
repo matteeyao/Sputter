@@ -4,8 +4,8 @@ POST http://localhost:5000/api/users/register
 Content-Type: application/json
 
 {
-    "handle": "jimmyjohns",
-    "email": "jimmyjohns@sputter.io",
+    "name": "John Doe",
+    "email": "jdoe@anonymous.com",
     "password": "password",
     "password2": "password"
 }
@@ -16,18 +16,20 @@ POST http://localhost:5000/api/users/login
 Content-Type: application/json
 
 {
-    "email": "mattypatty@sputter.io",
+    "email": "tomhanks@savingprivateryan.com",
     "password": "password"
 }
 
-### Post a tweet
+### Post a post
 
-POST http://localhost:5000/api/tweets/
+POST http://localhost:5000/api/posts/
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYTFlM2E4MTk2MGRhNjkyZjhjYzQ1NyIsImhhbmRsZSI6Im1hdHR5cGF0dHkiLCJlbWFpbCI6Im1hdHR5cGF0dHlAc3B1dHRlci5pbyIsImlhdCI6MTYyMTIyNDI0MywiZXhwIjoxNjIxMjI3ODQzfQ.f05mlALEvT_whQ6AW9cKHcrimk8oh7YggtJTbBJe8AI
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYjEyYjQ2NDQ1Nzg3NjJkYmVhMjQ0YyIsImVtYWlsIjoidG9taGFua3NAc2F2aW5ncHJpdmF0ZXJ5YW4uY29tIiwiaWF0IjoxNjIyMjI1MDY5LCJleHAiOjE2MjIyMjg2Njl9.NxDga7b7XWbtjSMoynvkXK9MU1R6he6uea_oLH5v5o4
 
 {
-    "text": "This is the third tweet"
+    "title": "Hi, I'm Tom Hanks",
+    "body": "We succeeded.",
+    "author": "60b12b4644578762dbea244c"
 }
 
 ### Get a user's tweets

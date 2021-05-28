@@ -56,6 +56,14 @@ You may have also noticed in the example user document, there are several Object
 
 * Large One-to-Many relationships
 
+The advantages of using documents are:
+
+* Documents (i.e. objects) correspond to native data types in many programming languages.
+
+* Embedded documents and arrays reduce need for expensive joins.
+
+* Dynamic schema supports fluent polymorphism
+
 ### NoSQL
 
 NoSQL databases are non-relational databases, and one of the best ways to understand them is to compare them to relational databases. We will break down a few of the differences in this section.
@@ -158,19 +166,21 @@ Express is a web application framework for Node. It provides us with tools for t
 
     + Similar to defining routes and controller methods in our Fullstack Projects, you will use Express to turn your backend into an API that your frontend will use to retrieve information.
 
-2. Combine w/ view rendering engines to generate responses by passing data to templates.
+2. Integrate w/ "view" rendering engines to generate responses by inserting data to templates.
 
     + Express can also function similar to Rails by serving up 'views' as a response to a request. However, your frontend will be handled primarily by React and Redux so you will not be using this functionality.
 
-3. Set common web application settings like which port to use.
+3. Set common web application settings like tje port to use for connecting, and the location of the templates that are used for rendering the response.
 
     + This is probably not something that you have done when using Rails.
 
-4. Add middleware at any point within the request handling pipeline.
+4. Add additional request processing "middleware" at any point within the request handling pipeline.
 
     + Express middleware is similar to Rails controller callbacks, such as `before_action` or `after_action`. They allow you to apply some code or logic to HTTP requests or responses at any point during the request pipeline of your app.
 
-It is important to note that Express is a very minimalist library, so there is a huge amount of middleware that has been created by other developers to solve specific web development problems. For example, you will be using several pieces of middleware to help implement user auth for your MERN app.
+While *Express* itself is fairly minimalist, developers have created compatible middleware packages to address almost any web development problem. There are libraries to work w/ cookies, sessions, user logins, URL parameters, `POST` data, security headers, and *many* more.
+
+Routes, middleware, error handling, and template code make up the main parts of an Express app.
 
 <br />
 
@@ -198,8 +208,58 @@ You will mainly be utilizing Axios to make your frontend AJAX calls instead of j
 
 ### What is Node.js?
 
-Node.js is a JavaScript runtime environment. In other words, it is an environment where you can run application code. JavaScript was originally designed only to be used in browsers. Node allows us to utilize JavaScript code outside of the browser in order to build network applications. You have already used Node to help manage your React app's dependencies as well as run webpack to bundle your JavaScript. Now you will be taking it one step further and using it as a runtime for your server to have a truly full-stack JavaScript app!
+Node.js is a JavaScript runtime environment. In other words, it is an environment where you can run application code. JavaScript was originally designed only to be used in browsers. Node allows us to utilize JavaScript code outside of the browser in order to build network applications. 
+
+You have already used Node to help manage your React app's dependencies as well as run webpack to bundle your JavaScript. Now you will be taking it one step further and using it as a runtime for your server to have a truly full-stack JavaScript app!
 
 The main benefit of using Node, is that we can take advantage of JavaScript's asynchronicity.
 
-Normally, your server would not be able to process two requests at the same time. In other words, the server cannot process an additional request until the first is completed. This problem is called *blocking*. There are ways that blocking can be handled, such as multi-threading, however Node.js does not use multi-threading to solve the blocking problem. Node.js makes it easy for you to allow multiple events to occur concurrently by utilizing JavaScript's asynchronicity. Each event would be handled by JavaScript's event loop just as asynchronous functions would in a browser.
+Normally, your server would not be able to process two requests at the same time. In other words, the server cannot process an additional request until the first is completed. This problem is called *blocking*. There are ways that blocking can be handled, such as multi-threading, however Node.js does not use multi-threading to solve the blocking problem. 
+
+Node.js makes it easy for you to allow multiple events to occur concurrently by utilizing JavaScript's asynchronicity. Each event would be handled by JavaScript's event loop just as asynchronous functions would in a browser.
+
+### Why Node.js
+
+A common task for a web server can be to open a file on the sever and return the content to the client.
+
+Here is how PHP or ASP handles a file request:
+
+    1. Sends the task to the computer's file system.
+
+    2. Waits while the file system opens and reads the file.
+
+    3. Returns the content to the client.
+
+    4. Ready to handle the next request.
+
+Here is how Node.js handles a file request:
+
+    1. Sends the task to the computer's file system.
+
+    2. Ready to handle the next request.
+
+    3. When the file system has opened and read the file, the server returns the content to the client.
+
+Node.js eliminates the waiting and simply continues w/ the next request.
+
+Node.js runs single-threaded, non-blocking, asynchronously programming, which is very memory efficient.
+
+### What Can Node.js Do?
+
+* Node.js can generate dynamic page content
+
+* Node.js can create, open, read, write, delete, and close files on the server
+
+* Node.js can collect form data
+
+* Node.js can add, delete, modify data in your database
+
+### What is a Node.js File?
+
+* Node.js files contain tasks that will be executed on certain events
+
+* A typical event is someone trying to access a port on the server
+
+* Node.js files must be initiated on the server before having any effect
+
+* Node.js files have extension ".js"

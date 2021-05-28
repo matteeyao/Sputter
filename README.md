@@ -1049,4 +1049,701 @@ This means that if we send two `addUser` mutations in one request, the first is 
 
 </br>
 
-# Writing Mutations
+# Resolving Circular Queries
+
+When defining GraphQL types, it's common to run into situations when two types reference each other. This is a problem b/c one type will be undeclared or undefined when the other is evaluated.
+
+## Circular References in GraphQL Type Definitions
+
+```js
+// Bad, `Item` is not defined (JavaScript actually means *undeclared* here)
+const User = new GraphQLObjectType({
+  name: 'User',
+  fields: {
+    id   : { type: GraphQLString },
+    email: { type: GraphQLString },
+    items: {
+      type: new GraphQLList(Item),
+      resolve: () => { /* resolve function to get user's items */ }
+    },
+  }
+})
+
+const Item = new GraphQLObjectType({
+  name: "Item",
+  fields: {
+    id:        { type: GraphQLString },
+    name:      { type: GraphQLString },
+    user: {
+      type: User,
+      resolve: () => { /* resolve function to get user of item */ }
+    }
+  }
+})
+```
+
+```js
+// doesn't work either - `Item` is undefined, but `type` expects a GraphQL type
+let Item // declared, but has value of undefined
+const User = new GraphQLObjectType({
+  name: 'User',
+  fields: {
+    id   : { type: GraphQLString },
+    email: { type: GraphQLString },
+    items: {
+      type: new GraphQLList(Item),
+      resolve: () => { /* resolve function to get user's items */ }
+    },
+  }
+})
+
+Item = ...
+```
+
+To fix this, the reference JavaScript implementation allows us to **indicate the fields using a function that returns an object, instead of a plain object**. This function is lazily evaluated during runtime, so we will not run into problems w/ the interpreter.
+
+```js
+// Works!
+const User = new GraphQLObjectType({
+  name: 'User',
+  fields: () => ({
+    id   : { type: GraphQLString },
+    email: { type: GraphQLString },
+    items: {
+      type: new GraphQLList(Item),
+      resolve: () => { /* resolve function to get user's items */ }
+    },
+  })
+})
+
+const Item = new GraphQLObjectType({
+  name: "Item",
+  fields: () => ({
+    id:        { type: GraphQLString },
+    name:      { type: GraphQLString },
+    user: {
+      type: User,
+      resolve: () => { /* resolve function to get user of item */ }
+    },
+  })
+})
+```
+
+</br>
+
+---
+
+</br>
+
+# Promises 
+
+Promises are a tool for simplifying callbacks to asynchronous functions. Since the introduction of ES6, they have been included natively in Javascript.
+
+## The Problem
+
+Sometimes we need to chain several asynchronous functions. For example, maybe we want to get our user's geolocation, then hit an API to `GET` the user's nearest surf spot, then hit a third API to get the surf conditions for that spot.
+
+```js
+function getForecastForLocation(){
+  locationRequest({
+    success: spotRequest({
+      success: forecastRequest({
+        success: handleSuccess,
+        error: handleError
+      }),
+      error: handleError
+    }),
+    error: handleError
+  });
+}
+```
+
+We would have to define the success callback of one function to invoke the next, and each would have to handle its own errors. Nesting callbacks like this can only lead us to callback hell.
+
+## The Solution
+
+W/ promises, we can write:
+
+```js
+function getForecastForLocation(){
+  locationRequest()
+    .then(spotRequest)
+    .then(forecastRequest)
+    .then(handleSuccess)
+    .catch(handleError)
+}
+```
+
+Let's learn how to do this.
+
+## Functionality and Vocabulary
+
+First let's define a couple terms:
+
+* *action*: the primary function of a promise (i.e., fetch data from an API)
+
+Promises can exist in one of three states:
+
+* *pending*: The promise has been neither fulfilled nor rejected.
+
+* *fulfilled*: The promise's action has succeeded.
+
+* *rejected*: The promise's action has failed.
+
+A promise is considered **settled** when it has either been fulfilled or rejected.
+
+A few notes about functionality before moving on:
+
+* A promise can only succeed or fail once - callbacks will not be invoked multiple times.
+
+* A promise cannot change its state from fulfilled to rejected or vice-versa.
+
+* If a promise has already been settled and a callback is added that matches the promise's state, that callback will be invoked immediately.
+
+## Creating a Promise
+
+We can create a new promise using the promise constructor function:
+
+```js
+const p = new Promise(executor);
+```
+
+The constructor function accepts a single `executor` argument, which is a function that takes two optional parameters: `resolve` and `reject`. Let's see an example:
+
+```js
+const p = new Promise((resolve, reject) => {
+  if (/* success condition */){
+    resolve(/* any args */);
+  } else {
+    reject(/* any args */);
+  }
+});
+```
+
+## `resolve` and `reject`
+
+`resolve` and `reject` are responsible for telling the promise what arguments to pass on once the promise has been settled.
+
+```js
+const request = new Promise(resolve => {  
+  setTimeout((msg) => resolve(msg), 1000);
+});
+
+const receiveResponse = msg => console.log(msg);
+
+request.then(receiveResponse);
+```
+
+`receiveResponse` is the resolve callback, and will be invoked once `setTimeout` successfully goes off after one second. It receives an argument which will get passed to the resolve callback, which in this case prints it out.
+
+## `then`
+
+Promise objects have two important pre-defined methods: `then` and `catch`. Both `then` and `catch` return **a new promise object**, making them chainable.
+
+`then` accepts two parameters:
+
+* `onFulfilled`: the function to invoke if the promise is *fulfilled*
+
+* `onRejected`: the function to invoke if the promise is *rejected*
+
+Essentially, `onFulfilled` is the resolve function and `onRejected` is the `reject` function.
+
+```js
+p.then(onFulfilled) // onFulfilled *might* run
+p.then(onFulfilled, onRejected) // either onFulfilled or onRejected *will* run
+```
+
+## `catch`
+
+`catch` only accepts an `onRejected` parameter. `catch` acts exactly like calling `then(null, onRejected)` on a promise.
+
+Consider this:
+
+```js
+p.then(onFulfilled, onRejected).catch(error)
+```
+
+If `p` is rejected, `onRejected` will run. `error` will run if either `onFulfilled` or `onRejected` are rejected.
+
+Note: `onRejected` logging an error message would not trigger `error`, but it would if it explicitly threw an error. In other words:
+
+```js
+const onRejected = err => console.log(err); // fulfilled; would not trigger error
+
+const onRejected = err => throw err; // rejected; would trigger error
+```
+
+## Using Promises
+
+While promises can be a little tricky to understand, they are extremely easy to use. The jQUery `ajax` method allows use of success callbacks and also returns a `jqXHR` object, which can be used like a promise. We can avoid passing a callback to `ajax` by calling `then` on the the return value and passing the callback to `then`.
+
+```js
+// Passing a callback
+
+const fetchSuccess = cat => console.log(cat);
+const fetchError = err => console.log(err);
+
+const fetchCat = (catId, success, error) => (
+  $.ajax({
+    url: `/cats/${catId}`,
+    success,
+    error
+  })
+);
+
+fetchCat(1, fetchSuccess, fetchError);
+```
+
+```js
+// Using a promise.
+
+const fetchSuccess = cat => console.log(cat);
+const fetchError = err => console.log(err);
+
+const fetchCat = catId => $.ajax({ url: `/cats/${catId}` });
+// Note the implicit return!
+
+fetchCat(1).then(fetchSuccess).fail(fetchError);
+```
+
+Note how we use `fail` instead of `catch`. That's b/c the `jqXHR` object has a slightly different set of methods than a standard promise. `then` behaves like we'd expect, but we use `fail` to handle errors. We also have access to `done`, which only takes a success callback, and `always`, which runs its callback upon the promise being settled, no matter what.
+
+Promises really excel at error handling and separating concerns. In the second example, the `fetchCat` function no longer needs to be involved w/ or know about the expected outcome.
+
+</br>
+
+---
+
+</br>
+
+# GraphQL Introspection
+
+## Tooling and Ecosystem
+
+GraphQL's Type System allows us to quickly define the surface area of our APIs. It allows developers to clearly define the capabilities of an API, but also to validate incoming queries against a schema.
+
+An amazing thing w/ GraphQL is that these capabilities are not only known to the server. GraphQL allows clients to ask a server for information about its schema. GraphQL calls this **introspection**.
+
+## Introspection
+
+The designers of the schema already know what the schema looks like but how can clients discover what is accessible through a GraphQL API? We can ask GraphQL for this information by querying the `__schema` meta-field, which is always available on the root type of a Query per the spec.
+
+```js
+query {
+  __schema {
+    types {
+      name
+    }
+  }
+}
+```
+
+Take this schema definition for example:
+
+```js
+type Query {
+  author(id: ID!): Author
+}
+
+type Author {
+  posts: [Post!]!
+}
+
+type Post {
+  title: String!
+}
+```
+
+If we were to send the introspection query mentioned above, we would get the following result:
+
+```json
+{
+  "data": {
+    "__schema": {
+      "types": [
+        {
+          "name": "Query"
+        },
+        {
+          "name": "Author"
+        },
+        {
+          "name": "Post"
+        },
+        {
+          "name": "ID"
+        },
+        {
+          "name": "String"
+        },
+        {
+          "name": "__Schema"
+        },
+        {
+          "name": "__Type"
+        },
+        {
+          "name": "__TypeKind"
+        },
+        {
+          "name": "__Field"
+        },
+        {
+          "name": "__InputValue"
+        },
+        {
+          "name": "__EnumValue"
+        },
+        {
+          "name": "__Directive"
+        },
+        {
+          "name": "__DirectiveLocation"
+        }
+      ]
+    }
+  }
+}
+```
+
+As you can see, we queried for all types on the schema. We get both the object types we defined and scalar types. We can even introspect the introspection types!
+
+There's much more than name available on introspection types. Here's another example:
+
+```js
+{
+  __type(name: "Author") {
+    name
+    description
+  }
+}
+```
+
+In this example, we query a single type using the `__type` meta-field and we ask for its name and description. Here's the result for this query:
+
+```json
+{
+  "data": {
+    "__type": {
+      "name": "Author",
+      "description": "The author of a post.",
+    }
+  }
+}
+```
+
+As you can see, introspection is an extremely powerful feature of GraphQL, and we've only scratched the surface. The specification goes into much more detail about what fields and types are available in the introspection schema.
+
+</br>
+
+---
+
+</br>
+
+# GraphQL
+
+GraphQL queries have a very simple structure and are easy to understand. Take this one:
+
+```js
+{
+  subscribers(publication: "apollo-stack"){
+    name
+    email
+  }
+}
+```
+
+Here's what the response would look like:
+
+```js
+{
+  subscribers: [
+    { name: "Jane Doe", email: "jane@doe.com" },
+    { name: "John Doe", email: "john@doe.com" },
+    ...
+  ]
+}
+```
+
+Notice how the shape of the response is almost the same as that of the query.
+
+## Schema and Resolve Functions
+
+Every GraphQL server has two core parts that determine how it works: a **schema** and **resolve functions**.
+
+**The schema**: The schema is a model of the data that can be fetched through the GraphQL server. It defines what queries clients are allowed to make, what types of data can be fetched from the server, and what the relationships between these types are.
+
+In GraphQL schema notation, it looks like this:
+
+```js
+type Author {
+  id: Int
+  name: String
+  posts: [Post]
+} type Post {
+  id: Int
+  title: String
+  text: String
+  author: Author
+} type Query {
+  getAuthor(id: Int): Author
+  getPostsByTitle(titleContains: String): [Post]
+} schema {
+  query: Query
+}
+```
+
+The schema states that the application has three types - *Author*, *Post*, and *Query*. The third type - *Query* - is just there to mark the entry point into the schema. Every query has to start w/ one of its fields: *`getAuthor`* or *`getPostsByTitle`*. You can think of them sort of like REST endpoints, except more powerful.
+
+*`Author`* and *`Post`* reference each other. You can get *`Author`* to *`Post`* through the *`Author`*'s `posts` field, and you can get from *`Post`* to *`Author`* through the *`Posts`*' `author` field.
+
+The schema tells the server what queries clients are allowed to make, and how different types are related, but there is one critical piece of information that it doesn't contain: where the data for each type comes from.
+
+That's what resolve functions are for.
+
+## Resolve Functions
+
+Resolve functions are like little routers. They specify how the types and fields in the schema are connected to various backends, answering the questions "How do I get the data for *`Authors`*?" and "Which backend do I need to call w/ what arguments to get the data for *`Posts`*?".
+
+GraphQL resolve functions can contain arbitrary code, which means a GraphQL server can talk to any kind of backend, even other GraphQL servers. For example, the *Author* type could be stored in a SQL database, while *`Posts`* are stored in MongoDB, or even handled by a microservice.
+
+Perhaps the greatest feature of GraphQL is that it hides all of the backend complexity from clients. No matter how many backends your app uses, all the client will see is a single GraphQL endpoint w/ a simple, self-documenting API for your application.
+
+Here's an example of two resolve functions:
+
+```js
+getAuthor(_, args) {
+  return sql.raw('SELECT * FROM authors WHERE id = %s', args.id);
+} posts(author) {
+  return request(`https://api.blog.io/by_author/${author.id}`);
+}
+```
+
+Of course, you wouldn't write the query or url directly in a resolve function, you'd put it in a separate module. But you get the picture.
+
+## Query execution - step by step
+
+At the end of this section, you'll understand how a GraphQL server uses the schema and resolve functions together to execute the query and produce the desired result.
+
+Here's a query that works w/ the schema introduced earlier. It fetches an author's name, all the posts for that uathor, and the name of the author of each post.
+
+```js
+{
+  getAuthor(id: 5){
+    name
+    posts {
+      title
+      author {
+        name # this will be the same as the name above
+      }
+    }
+  }
+}
+```
+
+Note, notice that this query fetches the name of the same author twice.
+
+Here are the three high-level steps the server takes to respond to the query:
+
+1. Parse
+
+2. Validate
+
+3. Execute
+
+### Step 1: Parsing the query
+
+First, the server parses the string and turns it into an AST - an abstract syntax tree. If there are any syntax errors, the server will stop execution and return the syntax error to the client.
+
+### Step 2: Validation
+
+The validation stage makes sure that the query is valid given the schema before execution starts. It checks things like:
+
+* is *`getAuthor`* a field of the *Query* type?
+
+* does *`getAuthor`* accept an argument named *`id`*?
+
+* Are *`name`* and *`posts`* fields on the type returned by *`getAuthor`*?
+
+### Step 3: Execution
+
+If validation is passed, the GraphQL server will execute the query.
+
+Every GraphQL query has the shape of a tree - i.e. it is never circular. Execution begins at the root of the query. First, the executor calls the resolve function of the fields at the top level - in this case just *`getAuthor`* - w/ the provided parameters. It waits until all these resolve functions have returned a value, and then proceeds in a cascading fashion down the tree. If a resolve function returns a promise, the executor will wait until that promise is resolved.
+
+**The execution flow in diagram flow:**
+
+![](assets/images/execution-flow.png)
+
+Execution starts at the top. Resolve functions at the same level are executed concurrently.
+
+**The execution flow in table form:**
+
+```
+3.1: run Query.getAuthor
+3.2: run Author.name and Author.posts (for Author returned in 3.1)
+3.3: run Post.title and Post.author (for each Post returned in 3.2)
+3.4: run Author.name (for each Author returned in 3.3)
+```
+
+**The execution flow in text form (w/ all the details):**
+
+Just for convenience, here's the query again:
+
+```js
+{
+  getAuthor(id: 5){
+    name
+    posts {
+      title
+      author {
+        name # this will be the same as the name above
+      }
+    }
+  }
+}
+```
+
+In this query, there is only one root field - *`getAuthor`* - and there is one parameter - *`id`* - w/ value 5. The *`getAuthor`* resolve function will run and return a promise.
+
+```js
+getAuthor(_, { id }){
+  return DB.Authors.findOne(id);
+}
+
+// let's assume this returns a promise that then resolves to the
+// following object from the database: 
+{ id: 5, name: "John Doe" }
+```
+
+The promise is resolved when the database call returns. As soon as that happens, the GraphQL server will take the return value of this resolve function - an object in this case - and pass it to the resolve functions of the *`name`* and *`posts`* fields on *`Author`*, b/c those are the fields that were requested in the query. The *`name`* and *`posts`* resolve functions run in parallel:
+
+```js
+name(author) {
+  return author.name;
+} posts(author) {
+  return DB.Posts.getByAuthorId(author.id);
+}
+```
+
+The *`name`* resolve function is pretty straightforward: it simply returns the name property of the author object that was just passed down from the *`getAuthor`* resolve function.
+
+The *`posts`* resolve function makes a call to the database and returns a list of post objects:
+
+```js
+// list returned by DB.Posts.getByAuthorId(5)
+[{
+  id: 1,
+  title: "Hello World",
+  text: "I am here",
+  author_id: 5
+},{
+  id: 2,
+  title: "Why am I still up at midnight writing this post?",
+  text: "GraphQL's query language is incredibly easy to ...",
+  author_id: 5
+}]
+```
+
+Note, GraphQL-JS awaits for all promises in a list to be resolved/rejected before it calls the next level of resolve functions.
+
+B/c the query asks for the *`title`* and *`author`* fields of each Post, GraphQL then runs **four** resolve functions in parallel: the *`title`* and *`author`* for each post.
+
+The *`title`* resolve function is trivial again, and the *`author`* resolve function is the same as the one for *`getAuthor`*, except that it uses the *`author_id`* field on post, whereas the *`getAuthor`* function used the *`id`* argument:
+
+```js
+author(post){
+  return DB.Authors.findOne(post.author_id);
+}
+```
+
+Finally, the GraphQL executor calls the *`name`* resolve function of *`Author`* again, this time w/ the author objects returned by the author resolve function of *`Posts`*. It runs twice - once for each Post.
+
+And we're done! All that's left to do is pass the results up to the root of the query and return the result:
+
+```js
+{
+  data: {
+    getAuthor: {
+      name: "John Doe",
+      posts: [
+        {
+          title: "Hello World",
+          author: {
+            name: "John Doe"
+          }
+        },{
+          title: "Why am I still up at midnight writing this post?",
+          author: {
+            name: "John Doe"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+</br>
+
+---
+
+</br>
+
+# Setting up GraphQL
+
+## User queries
+
+```js
+{
+  users {
+    id,
+    name,
+    email
+  }
+}
+```
+
+```js
+{
+  user(id: "60b12b4644578762dbea244c") {
+    name
+  }
+}
+```
+
+## User query results
+
+```json
+{
+  "data": {
+    "users": [
+      {
+        "id": "60b12b4644578762dbea244c",
+        "name": "Tom Hanks",
+        "email": "tomhanks@savingprivateryan.com"
+      },
+      {
+        "id": "60b12ba944578762dbea244d",
+        "name": "Matt Yao",
+        "email": "mattyao@sputter.com"
+      },
+      {
+        "id": "60b12bc944578762dbea244e",
+        "name": "John Doe",
+        "email": "jdoe@anonymous.com"
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "data": {
+    "user": {
+      "name": "Tom Hanks"
+    }
+  }
+}
+```

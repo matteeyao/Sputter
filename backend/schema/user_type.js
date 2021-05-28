@@ -1,19 +1,31 @@
 const graphql = require("graphql"); // (1)
-const { GraphQLObjectType, GraphQLID, GraphQLString } = graphql; // (2)
+const { GraphQLObjectType, GraphQLList, GraphQLID, GraphQLString } = graphql; // (2)
 const mongoose = require("mongoose");
+const User = mongoose.model("user");
 
 const UserType = new GraphQLObjectType({ // (3)
     name: "UserType",
-    fields: {
+    // Create a closure to create a new scope
+    fields: () => ({
         id: { type: GraphQLID }, // Mongoose automatically generates an ID field for our models
         name: { type: GraphQLString },
-        email: { type: GraphQLString }
-    }
-})
+        email: { type: GraphQLString },
+        posts: {
+            // here we are requiring the Post type
+            type: new GraphQLList(require("./post_type")),
+            resolve(parentValue) {
+                return (
+                User.findById(parentValue.id)
+                    // populate is a mongoose method
+                    .populate("posts")
+                    .then(user => user.posts)
+                );
+            }
+        }
+    })
+});
 
 module.exports = UserType;
-
-/*----------------------------------------------------------------------------*/
 
 /*
 
@@ -42,4 +54,7 @@ So far we have defined the schema for the `User` type - we aren't interacting w/
 our backend yet. Now let's configure a type for our root queries so that we can
 actually return a user from our backend.
 
+(4) Now that we have a *nested query* to go from a post to getting information about
+the author of a post, let's query for a user's posts. We aren't fetching information
+bidirectionally.
 */

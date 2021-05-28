@@ -52,13 +52,13 @@ Although you might not realize it, you likely make use of graphs on a daily basi
 
 Let's take a look at a simple graph which might represent users and follows on Twitter:
 
-![](assets/images/directed-graph.png)
+![](backend/assets/images/directed-graph.png)
 
 The set of nodes in this graph is `N = {F, A, N, B, D}`. The set of edges is `E = {FN, NF, FA, AB, BF, BD, DA, NB}`. The graph represented here is called a *directed graph* b/c each edge has a direction associated w/ it. This makes sense for an application like Twitter since, although user `F` follows user `A`, it does not necessarily mean that user `A` follows user `F`. This is different from an application like Facebook, where connected users are 'friends' of each other. In this case, the graph would be undirected and the edges would be drawn w/o arrows.
 
 A *tree* is simply a directed graph w/ no cycles, meaning that you cannot trace a path from any node that leads back to itself. Trees are hierarchical data structures w/ a signature pyramid appearance:
 
-![](assets/images/binary-tree.png)
+![](backend/assets/images/binary-tree.png)
 
 ## Graphs and GraphQL
 
@@ -291,7 +291,7 @@ We'll get a lot of practice using JSON in the upcoming sections. Just keep in mi
 
   + server resolves queries and constructs response w/ data that it fetches from the database
 
-![](assets/images/existing-system.png)
+![](backend/assets/images/existing-system.png)
 
 2. GraphQL server to *integrate existing system*
 
@@ -301,11 +301,11 @@ We'll get a lot of practice using JSON in the upcoming sections. Just keep in mi
 
   + the server works w/ any data source (databases, web services, 3rd party APIs, ...)
 
-![](assets/images/connected-database.png)
+![](backend/assets/images/connected-database.png)
 
 3. *A hybrid approach* with a *connected database* and *integration of existing system*
 
-![](assets/images/hybrid-approach.png)
+![](backend/assets/images/hybrid-approach.png)
 
 GraphQL is transport layer agnostic → can be used w/ any available network protocol (TCP, WebSockets). GraphQL works w/ any database or data format.
 
@@ -317,7 +317,7 @@ GraphQL is transport layer agnostic → can be used w/ any available network pro
 
 * the purpose of each resolver is to retrieve the data for its corresponding field
 
-![](assets/images/resolver-function.png)
+![](backend/assets/images/resolver-function.png)
 
 ## GraphQL Clients
 
@@ -1573,7 +1573,7 @@ Every GraphQL query has the shape of a tree - i.e. it is never circular. Executi
 
 **The execution flow in diagram flow:**
 
-![](assets/images/execution-flow.png)
+![](backend/assets/images/execution-flow.png)
 
 Execution starts at the top. Resolve functions at the same level are executed concurrently.
 
@@ -1743,6 +1743,76 @@ And we're done! All that's left to do is pass the results up to the root of the 
   "data": {
     "user": {
       "name": "Tom Hanks"
+    }
+  }
+}
+```
+
+## Post queries
+
+```js
+{
+  posts {
+    title,
+    author {
+      name
+    }
+  }
+}
+```
+
+```js
+{
+  post(id: "60b134fa3d87056d0ae83408") {
+    title,
+    body,
+    author {
+      name,
+      email
+    }
+  }
+}
+```
+
+## Post query results
+
+```json
+{
+  "data": {
+    "posts": [
+      {
+        "title": "Hi, I'm Tom Hanks",
+        "author": {
+          "name": "Tom Hanks"
+        }
+      },
+      {
+        "title": "Hi, I'm Tom Hanks",
+        "author": {
+          "name": "Tom Hanks"
+        }
+      },
+      {
+        "title": "Hi, I'm Tom Hanks",
+        "author": {
+          "name": "Tom Hanks"
+        }
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "data": {
+    "post": {
+      "title": "Hi, I'm Tom Hanks",
+      "body": "I played Captain Miller in Saving Private Ryan.",
+      "author": {
+        "name": "Tom Hanks",
+        "email": "tomhanks@savingprivateryan.com"
+      }
     }
   }
 }

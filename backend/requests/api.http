@@ -24,7 +24,7 @@ Content-Type: application/json
 
 POST http://localhost:5000/api/posts/
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYjEyYjQ2NDQ1Nzg3NjJkYmVhMjQ0YyIsImVtYWlsIjoidG9taGFua3NAc2F2aW5ncHJpdmF0ZXJ5YW4uY29tIiwiaWF0IjoxNjIyMjI1MDY5LCJleHAiOjE2MjIyMjg2Njl9.NxDga7b7XWbtjSMoynvkXK9MU1R6he6uea_oLH5v5o4
+Authorization: Bearer <token>
 
 {
     "title": "Hi, I'm Tom Hanks",

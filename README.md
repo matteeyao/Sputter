@@ -1817,3 +1817,295 @@ And we're done! All that's left to do is pass the results up to the root of the 
   }
 }
 ```
+
+</br>
+
+---
+
+</br>
+
+# Resolvers - How Apollo Server processes GraphQL operations
+
+Apollo Server needs to know how to populate data for every field in your schema so that it can respond to requests for that data. To accomplish this, it uses resolvers.
+
+**A resolver is a function that's responsible for populating the data for a single field in your schema.** It can populate that data in any way you define, such as by fetching data from back-end database or a third-party API.
+
+If you *don't* define a resolver for a particular field, Apollo Server automatically defines a default resolver for it.
+
+## Defining a resolver
+
+### Base syntax
+
+Let's say our server defines the following schema:
+
+```js
+type Query {
+  numberSix: Int! // Should always return the number 6 when queried
+  numberSeven: Int! // Should always return 7
+}
+```
+
+We want to define resolvers for the `numberSix` and `numberSeven` fields of the root `Query` type so that they always return `6` and `7` when they're queried.
+
+Those resolver definitions look like this:
+
+```js
+const resolvers = {
+  Query: {
+    numberSix() {
+      return 6;
+    },
+    numberSeven() {
+      return 7;
+    }
+  }
+};
+```
+
+As this example shows:
+
+* You define all of your server's resolvers in a single JavaScript object (named `resolvers` above). This object is called the **`resolver map`**.
+
+* The resolver map has top-level fields that correspond to your schema's types (such as `Query` above).
+
+* Each resolver function belongs to whichever type its corresponding field belongs to.
+
+### Handling arguments
+
+Now let's say our server defines the following (slightly longer) schema:
+
+```js
+type User {
+  id: ID!
+  name: String
+}
+
+type Query {
+  user(id: ID!): User
+}
+```
+
+We want to be able to query the `user` field to fetch a user by its `id`.
+
+To achieve this, our server needs access to user data. For this contrived example, assume our server defines the following hardcoded array:
+
+```js
+const users = [
+  {
+    id: '1',
+    name: 'Elizabeth Bennet'
+  },
+  {
+    id: '2',
+    name: 'Fitzwilliam Darcy'
+  }
+];
+```
+
+Now we can define a resolver for the `user` field, like so:
+
+```js
+const resolvers = {
+  Query: {
+    user(parent, args, context, info) {
+      return users.find(user => user.id === args.id);
+    }
+  }
+}
+```
+
+As this example shows:
+
+* A resolver can optionally accept four positional arguments: `(parent, args, context, info)`.
+
+* The `args` argument is an object that contains all GraphQL arguments that were provided for the field by the GraphQL operation.
+
+Notice that this example *doesn't* define the resolvers for `User` fields (`id` and `name`). That's b/c the default resolver that Apollo Server creates for each of these fields does the right thing: it obtains the value directly from the object returned by the `user` resolver.
+
+### Passing resolvers to Apollo Server
+
+After you define all of your resolvers, you pass them to the constructor of `ApolloServer` (as the `resolvers` property), along w/ your schema's definition (as the `typeDefs` property).
+
+The following example defines a hardcoded data set, a schema, and a resolver map. It then initializes an `ApolloServer` instance, passing the schema and resolvers to it.
+
+```js
+const { ApolloServer, gql } = require('apollo-server');
+
+// Hardcoded data store
+const books = [
+  {
+    title: 'The Awakening',
+    author: 'Kate Chopin',
+  },
+  {
+    title: 'City of Glass',
+    author: 'Paul Auster',
+  },
+];
+
+// Schema definition
+const typeDefs = gql`
+  type Book {
+    title: String
+    author: String
+  }
+
+  type Query {
+    books: [Book]
+  }
+`;
+
+// Resolver map
+const resolvers = {
+  Query: {
+    books() {
+      return books;
+    }
+  },
+};
+
+// Pass schema definition and resolvers to the
+// ApolloServer constructor
+const server = new ApolloServer({ typeDefs, resolvers });
+
+// Launch the server
+server.listen().then(({ url }) => {
+  console.log(`🚀  Server ready at ${url}`);
+});
+```
+
+Note that you can define your resolvers across as many different files and objects as you want, as long as you merge all of them into a single resolver map that's passed to the `ApolloServer` constructor.
+
+### Resolver chains
+
+Whenever a query asks for a field that contains an object type, the query *also* asks for *at least one field* of that object (if it didn't, there would be no reason to include the object in the query). A query always "bottoms out" on fields that contain either a scalar or a list of scalars.
+
+Therefore, whenever Apollo Server *resolves* a field that contains an object type, it always then resolves one or more fields of that object. Those subfields might in turn *also* contain object types. Depending on your schema, this object-field pattern can continue to an arbitrary depth, creating what's called a **resolver chain**.
+
+#### Example
+
+Let's say our server defines the following schema:
+
+```js
+// A library has a branch and books
+type Library {
+  branch: String!
+  books: [Book!]
+}
+
+// A book has a title and author
+type Book {
+  title: String!
+  author: Author!
+}
+
+// An author has a name
+type Author {
+  name: String!
+}
+
+type Query {
+  libraries: [Library]
+}
+```
+
+Here's a valid query against that schema:
+
+```js
+query GetBooksByLibrary {
+  libraries {
+    books {
+      author {
+        name
+      }
+    }
+  }
+}
+```
+
+The resulting resolver chain for this query matches the hierarchical structure of the query itself:
+
+```js
+//                                        Book.title()
+//                                    ↗
+// Query.libraries → Library.books()
+//                                    ↘
+//                                        Book.author() → Author.name()
+```
+
+When a chain "diverges" like this, each subchain executes in parallel.
+
+### Resolver arguments
+
+Resolver functions are passed four arguments: `parent`, `args`, `context`, and `info` (in that order).
+
+| Argument  	| Description                                                                                                                                                                                                                                                                             	|
+|-----------	|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
+| `parent`  	| The return value of the resolver for this field's parent (i.e., the previous resolver in the  resolver chain).  For resolvers of top-level fields w/ no parent (such as fields of `Query`), this value is obtained from the `rootValue` function passed to Apollo Server's constructor. 	|
+| `args`    	| An object that contains all GraphQL arguments provided for this field.  For example, when executing `query{ user(id: "4") }`, the `args` object passed to the `user` resolver is `{ "id": "4" }`                                                                                        	|
+| `context` 	| An object shared across all resolvers that are executing for a particular operation. Use this to share per-operation state, including authentication information, dataloader instances, and anything else to track across resolvers.                                                    	|
+| `info`    	| Contains information about the operation's execution state, including the field name, the path to the field from the root, and more.                                                                                                                                                    	|
+
+### The `context` argument
+
+The `context` argument is useful for passing things that any resolver might need, like authentication scope, database connections, and custom fetch functions. If you're using dataloaders to batch requests across resolvers, you can attach them to the `context` as well.
+
+**Resolvers should never destructively modify the `context` argument**. This ensures consistency across all resolvers and prevents unexpected errors.
+
+To provide a `context` to your resolvers, add a `context` initialization function to the `ApolloServer` constructor. This function is called w/ every request, so you can set the context based on the request's details (such as HTTP headers).
+
+```js
+// Constructor
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  context: ({ req }) => ({
+    authScope: getScope(req.headers.authorization)
+  })
+}));
+
+// Example resolver
+(parent, args, context, info) => {
+  if(context.authScope !== ADMIN) throw new AuthenticationError('not admin');
+  // Proceed
+}
+```
+
+Context initialization can be asynchronous, allowing database connections and other operations to complete:
+
+```js
+context: async () => ({
+  db: await client.connect(),
+})
+
+// Resolver
+(parent, args, context, info) => {
+  return context.db.query('SELECT * FROM table_name');
+}
+```
+
+### Return values
+
+A resolver function's return value is treated differently by Apollo Server depending on its type:
+
+| TYPE                 	| DESCRIPTION                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   	|
+|----------------------	|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
+| Scalar / object      	| A resolver can return a single value or an object. This return value  is passed down to any nested resolvers via the `parent` argument.                                                                                                                                                                                                                                                                                                                                                       	|
+| `Array`              	| Return an array if and only if your schema indicates that the resolver's associated field contains a list.  After you return an array, Apollo Server executes nested resolvers for each item in the array.                                                                                                                                                                                                                                                                                    	|
+| `null` / `undefined` 	| Indicates that the value for the field could not be found.  If your schema indicates that this resolver's field is nullable, then the operation result has a `null` value at the field's position.  If this resolver's field is *not* nullable, Apollo Server sets the field's parent to `null`. If necessary, this process continues up the resolver chain until it reaches a field that *is* nullable. This ensures that a response never includes a `null` value for a non-nullable field. 	|
+| `Promise`            	| Resolvers often perform asynchronous actions, such as fetching from a database or back-end API. To support this, a resolver can return a promise that resolves to any other  supported return type.                                                                                                                                                                                                                                                                                           	|
+
+</br>
+
+---
+
+</br>
+
+# Data sources - Manage connections to databases and REST APIs
+
+**Data sources** are classes that Apollo Server cn use to encapsulate fetching data from a particular source, such as a database or a REST API. These classes help handle caching, deduplication, and errors while resolving operations.
+
+Your server can use any number of different data sources. You don't *have* to use data sources to fetch data, but they're strongly recommended.
+
+![](backend/assets/images/data-source.svg)
+

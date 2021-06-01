@@ -53,7 +53,7 @@ const GodSchema = new Schema({
 
 GodSchema.statics.addRelative = (godId, relativeId, relationship) => {
   const God = mongoose.model("god");
-  const God2 = mongoose.model("god");
+  // const God2 = mongoose.model("god");
 
   return God.find({
     _id: {

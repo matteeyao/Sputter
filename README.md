@@ -92,7 +92,131 @@ It's becoming tedious to restart the server each time we make a change, so let's
 
 Now we can simply run `npm run dev` once and Nodemon will watch for changes we make to our server.
 
+Go to `http://localhost:5000/graphql` to test out your queries.
 
+## Writing Mutations
+
+Let's create a mutation to add a relative to a god. So far, we've been able to use built-in Mongoose methods to write each of our mutations (`findOneAndUpdate`, `remove`). However, most of the time there is simply no built-in method which can handle our needs. In these cases, we will have to write our own static methods on the corresponding model, just as we did to find relatives for the God type.
+
+Let's write the first one together. The mutation itself is very straightforward.
+
+```js
+// ...
+addGodRelative: {
+    type: GodType,
+    args: {
+        godId: { type: GraphQLID },
+        relativeId: { type: GraphQLID },
+        relationship: { type: GraphQLString }
+    },
+    resolve(parentValue, { godId, relativeId, relationship }) {
+        return God.addRelative(godId, relativeId, relationship);
+    }
+},
+// ...
+```
+
+However, some complexity arises when we write the static method on the God model. Let's tackle it piece by piece. First, we define our `addRelative` method:
+
+```js
+GodSchema.statics.addRelative = (godId, relativeId, relationship) => {
+  const God = mongoose.model("god");
+};
+```
+
+However, we run into some difficulty right away. Although we can retrieve a single resource using `God.find`, we cannot call that method twice in order to retrieve two gods - Mongoose will throw an error. We could possibly call `mongoose.model('god')` a second time and assign it to another variable, but this would get messy quickly - how do we handle all of these promises and their results?
+
+Fortunately, Mongoose allows us to query for multiple properties at once. We just have to modify the value of our query to take in an object with the key `$in`:
+
+```js
+God.find({
+  _id: { $in: [godId, relativeId] }
+});
+```
+
+As you might expect, the result of this query is returned in an array. You might also expect the results to match the order of the arguments which are passed in; however, this is not the case. Mongoose simply queries the database and adds results to the array as they are found. This means that our gods can be returned in any order, so we will need to find a way to determine which is which:
+
+```js
+God.find({
+    '_id': { $in: [
+        godId,
+        relativeId
+    ]}})
+    .then(gods => {
+        const god = godId === gods[0].id ? gods[0] : gods[1];
+        const relative = relativeId === gods[0].id ? gods[0] : gods[1];
+```
+
+Now that we know which is which, we can build out the relationships depending on the value of the relationship string passed into the static method:
+
+```js
+GodSchema.statics.addRelative = (godId, relativeId, relationship) => {
+  const God = mongoose.model("god");
+
+  return God.find({
+    _id: { $in: [godId, relativeId] }
+  }).then(gods => {
+    const god = godId === gods[0].id ? gods[0] : gods[1];
+    const relative = relativeId === gods[0].id ? gods[0] : gods[1];
+
+    switch (relationship) {
+      case "parent":
+        god.parents.push(relative);
+        relative.children.push(god);
+        break;
+      case "child":
+        god.children.push(relative);
+        relative.parents.push(god);
+        break;
+      case "sibling":
+        god.siblings.push(relative);
+        relative.siblings.push(god);
+        break;
+    }
+
+    return Promise.all([god.save(), relative.save()]).then(
+      ([god, relative]) => god
+    );
+  });
+};
+```
+
+`Promise.all` returns an array with all of our results, but we only care about returning the god we added a relative to.
+
+Make sure to test your new mutation in GraphiQL before you move on.
+
+As you can see, writing mutations in GraphQL can become a difficult exercise. It requires a good understanding of the server we are working with, and we have to explicitly define the information returned from our resolve functions. However, this hard work will pay off later when we build the frontend of our application.
+
+## Mutations Continued
+
+You will be writing the remaining mutations for this project. You will be able to use built in Mongoose methods to resolve some of them. For others, you will need to write a static method on the corresponding model to keep your code clean. There is rarely a one-size-fits-all solution when it comes to writing GraphQL mutations. Instead, you should utilize your knowledge of Mongoose and JavaScript to approach each mutation individually.
+
+Write the following mutations and make sure to test each one to make sure everything works correctly!
+
+* `removeGodRelative`
+
+* `addGodEmblem`
+
+* `removeGodEmblem`
+
+* `updateGodAbode`
+
+* `addGodDomain`
+
+* `removeGodDomain`
+
+* `newAbode`
+
+* `deleteAbode`
+
+* `updateAbode`
+
+* `newEmblem`
+
+* `deleteEmblem`
+
+* `updateEmblem`
+* ``
 
 <br />
 

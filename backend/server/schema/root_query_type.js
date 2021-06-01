@@ -1,16 +1,22 @@
-const graphql = require("graphql");
-const { GraphQLObjectType, GraphQLList, GraphQLNonNull, GraphQLID } = graphql;
 const mongoose = require("mongoose");
+const graphql = require("graphql");
+const { GraphQLObjectType, GraphQLList, GraphQLID, GraphQLNonNull } = graphql;
 
-const User = mongoose.model("user");
 const UserType = require("./user_type");
-
-const Post = mongoose.model("post");
 const PostType = require("./post_type");
+const GodType = require("./god_type");
+const AbodeType = require("./abode_type");
+const EmblemType = require("./emblem_type");
+const User = mongoose.model("user");
+const Post = mongoose.model("post");
+const God = mongoose.model("god");
+const Abode = mongoose.model("abode");
+const Emblem = mongoose.model("emblem");
+
 
 const RootQuery = new GraphQLObjectType({
     name: "RootQueryType",
-    fields: {
+    fields: () => ({
         users: {
             /* This is the type we defined in the last step, wrapped in a
             GraphQLList to specify that the data will be returned as an array */
@@ -61,8 +67,51 @@ const RootQuery = new GraphQLObjectType({
             resolve(parentValue, args) {
                 return Post.findById(args.id)
             }
+        },
+        /* this root query will return all gods, therefore it won't need an argument */
+        gods: {
+            type: new GraphQLList(GodType),
+            resolve() {
+                // this is just the mongoose method to return all gods
+                return God.find({});
+            }
+        },
+        god: {
+            // we are only returning a single god here so we don't need a GraphQLList
+            type: GodType,
+            // we will take in an `id` for this root query to find the single god
+            args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+            resolve(parentValue, { id }) {
+                return God.findById(id);
+            }
+        },
+        abodes: {
+            type: new GraphQLList(AbodeType),
+            resolve() {
+                return Abode.find({});
+            }
+        },
+        abode: {
+            type: AbodeType,
+            args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+            resolve(parentValue, { id }) {
+                return Abode.findById(id);
+            }
+        },
+        emblems: {
+            type: new GraphQLList(EmblemType),
+            resolve() {
+                return Emblem.find({});
+            }
+        },
+        emblem: {
+            type: EmblemType,
+            args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+            resolve(parentValue, { id }) {
+                return Emblem.findById(id);
+            }
         }
-    }
+    })
 })
 
 module.exports = RootQuery;

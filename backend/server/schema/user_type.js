@@ -57,4 +57,5 @@ actually return a user from our backend.
 (4) Now that we have a *nested query* to go from a post to getting information about
 the author of a post, let's query for a user's posts. We aren't fetching information
 bidirectionally.
+
 */

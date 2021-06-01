@@ -19,8 +19,8 @@ const UserSchema = new Schema({
     default: Date.now
   },
   posts: [{
-      type: Schema.Types.ObjectId,
-      ref: 'post'
+    type: Schema.Types.ObjectId,
+    ref: 'post'
   }]
 })
 

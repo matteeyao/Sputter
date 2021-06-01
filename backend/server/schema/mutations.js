@@ -2,16 +2,20 @@ const graphql = require("graphql");
 const { 
   GraphQLObjectType, 
   GraphQLString, 
-  GraphQLInt, 
+  GraphQLID, 
   GraphQLNonNull 
 } = graphql;
 const mongoose = require("mongoose");
 const UserType = require("./user_type");
 const PostType = require("./post_type");
 const GodType = require("./god_type");
+const AbodeType = require("./abode_type");
+const EmblemType = require("./emblem_type");
 const User = mongoose.model("user");
 const Post = mongoose.model("post");
 const God = mongoose.model("god");
+const Abode = mongoose.model("abode");
+const Emblem = mongoose.model("emblem");
 
 const Mutations = new GraphQLObjectType({
   name: "Mutation",

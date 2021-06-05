@@ -1,562 +1,1012 @@
-# Greek Gods Browser
+# Greek Gods Frontend
 
-For today's project, we'll be setting up the server for a full stack application built with Node, Express, MongoDB, and GraphQL. We are developing an application for Greek gods. Once the project is finished, we will be able to browse through a list of gods and view their abodes, emblems, and relationships. There will be three models in our application consisting of:
+Previously, we set up our server, configured GraphQL, wrote schemas for our data, and generated root queries and mutations. Today, we will be building off of that work to generate a frontend for our Greek Gods application.
 
-| **Gods**                              	| **Emblems** 	| **Abodes**  	|
-|---------------------------------------	|-------------	|-------------	|
-| Name                                  	| Name        	| Name        	|
-| Type (god or goddess)                 	| Gods        	| Coordinates 	|
-| Description                           	|             	| Gods        	|
-| Domains (god of fire, goddess of war) 	|             	|             	|
-| Abode (e.g. Mount Olympus)            	|             	|             	|
-| Emblems (e.g. Lyre, Python, Raven)    	|             	|             	|
-| Parents                               	|             	|             	|
-| Children                              	|             	|             	|
-| Siblings                              	|             	|             	|
+Run `npm install` to install the node modules.
 
-## Connecting to MongoDB Atlas
+## Connect to MongoDB
 
-There will be a lot going on in our server file since we are not only connecting to Atlas, but will also be adding middleware down the road to connect to GraphQL and configure Webpack. Because of this, we're going to configure our Express server in a standalone file. Additionally, for the sake of organization, it will be helpful to store all of our server files in their own directory.
+You'll need to add your own connection string to the `server/config/keys.js` file. Log in to MongoDB Atlas, select the environment you made yesterday, and copy the connection string for that environment over to `keys.js`. Make sure to replace `<username>` and `<password>` with the username and password of a user with access to the database (you can always create a new user if you forgot your old one).
 
-Running `node server.js`, you should see the success message from MongoDB logged to the console.
+## React Setup
 
-## Populating the Database
+When developing an application for production, it is often useful to completely decouple the server and client so that they can be hosted separately. However for this project we’ll only being working in a development environment. We can therefore install all of our client dependencies in the root directory of our project for convenience.
 
-In order to migrate the gods data to your database, you will first need to install the [MongoDB command line tools](https://docs.mongodb.com/v3.6/installation/). → `brew install mongodb-database-tools`
+Let's start by installing a few things we know we're going to need. Run `npm install react react-dom react-router-dom` so that we can begin to build out the index file for our client.
 
-* Download the [data](https://assets.aaonline.io/graphql/projects/greek_gods/day_one/seed_data.zip), unzip, and then `cd` into that directory.
-
-* Then, from the cluster page, go to the `Command Line Tools` tab and copy the first command under `Binary Import and Export Tools`.
-
-* Change the password to your database user's password, then, on the end of the command, ad `--db <yourdbname>` followed by the name of one of the `bson` file (to only seed one), or `.` for all files.
-
-    * Ensure that the `--db` flag is followed by the name of the database you are using for today's project. The name of your database can also be found in your `MONGO_URI`. For example, I used the following command to seed emblems (don't copy this exactly, use your own cluster info + password + db name):
-
-    ```
-    mongorestore --uri mongodb+srv://dev:<PASSWORD>@cluster.3susk.mongodb.net --db <yourdbname> .
-    ```
-
-    * Once you've executed the command, the greek gods data will be uploaded to your database.
-
-## Configuring GraphQL
-
-### Installation
-
-Now that our database is populated, we are finally ready to add GraphQL to our project! We need to start by installing two npm packages:
-
-* `graphql` allows us to build a type schema and serve queries against it.
-
-* `express-graphql` configures our Express server to use GraphQL and provides us with the GraphiQL interface
-
-### Root Queries
-
-Recall that we need to configure root queries as "entry points" into our GraphQL application. Before we can configure Express w/ GraphQL, we need to create at least one root query before we can create a `GraphQLSchema` for our application.
-
-### Configuring the Server
-
-Now, we can configure our server with `express-graphql` using the schema file we have just created. The `expressGraphQL` middleware takes an object with options as an argument - the `schema` is the only required option. We'll pass `expressGraphQL` the schema we just defined as well as setting the option to use GraphiQL. Back in `server.js`, add the following code below the mongoose connection method and above the export line:
-
-```js
-// Don't forget to import your schema from ./schema/schema
-const expressGraphQL = require("express-graphql");
-const schema = require("./schema/schema");
-
-// ...
-// ...
-
-app.use(
-  "/graphql",
-  expressGraphQL({
-    schema,
-    graphiql: true
-  })
-);
+```
+npm install react react-dom react-router-dom
 ```
 
-Try restarting your server. You will notice that an error has been logged to the console: `MissingSchemaError: Schema hasn't been registered for model "god"`.
+Create a new directory in the root of the project called `client`. Within it, create two new files - `index.js` and `index.html`. Let's add some bare bones HTML to `index.html` with a root div we can connect our React application to:
 
-What is going on here? In short, your root query type is trying to access the god model before it has been seen by your application. Since it has not yet seen the model, Mongoose does not understand what you are querying for - the model has not yet been registered with Mongoose. We can fix this problem for good by making sure all of our models are imported into `server.js` by adding the line `const models = require('./models');` above the line where we import our schema.
 
-Now, once you've stopped and restarted your server, you can open `localhost:5000/graphql` and test your root queries for god and gods. Although we cannot yet return complete information on our gods, we can list everything we've specified so far in our `GodType`.
+```html
+<html>
+  <head>
+    <title>Greek Gods Browser</title>
+  </head>
 
-### Nodemon
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+```
 
-It's becoming tedious to restart the server each time we make a change, so let's add nodemon to our application to watch for changes. After installing the npm package, add the following script to your `package.json`:
+Now we can instantiate our React application within `index.js`. Import `React` and `ReactDOM`, create a root component, and render it to the root div in `index.html`:
 
+```js
+// src/index.js
+```
+
+## Babel and Webpack
+
+Let's add Babel loader to our project in order to transpose our JavaScript files using `Babel` and `webpack`. Install the following packages as development dependencies (you can do this using the `--save-dev` flag):
+
+* `babel-loader`
+
+* `@babel/core`
+
+* `@babel/node`
+
+* `@babel/preset-env`
+
+* `@babel/preset-react`
+
+```
+npm install babel-loader @babel/core @babel/node @babel/preset-env @babel/preset-react
+```
+
+Next we'll configure Babel to make use of our React presets. In your root directory, create a file called `.babelrc` and add the following code:
+
+```
+{
+  "presets": ["@babel/preset-react"]
+}
+```
+
+We also will need to configure webpack to make use of babel-loader serve up our `index.html` file.
+
+Install the following development dependencies in order to use Webpack in your project:
+
+* `webpack`
+
+* `webpack-dev-middleware`
+
+* `html-webpack-plugin`
+
+```
+npm install webpack webpack-dev-middleware html-webpack-plugin
+```
+
+Create a file called `webpack.config.js` in the root directory and add the following code:
+
+```js
+const webpack = require("webpack");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+
+module.exports = {
+  mode: "development",
+  entry: "./client/index.js",
+  output: {
+    path: "/",
+    filename: "bundle.js"
+  },
+  module: {
+    rules: [
+      {
+        use: "babel-loader",
+        test: /\.js$/,
+        exclude: /node_modules/
+      },
+      {
+        use: ["style-loader", "css-loader"],
+        test: /\.css$/
+      }
+    ]
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: "client/index.html"
+    })
+  ]
+};
+```
+
+Now we need to configure our server to make use of webpack. Within `server.js`, right before you export app, add the following code to configure your app to use the middleware for webpack:
+
+```js
+const webpackMiddleware = require("webpack-dev-middleware");
+const webpack = require("webpack");
+const webpackConfig = require("../webpack.config.js");
+
+app.use(webpackMiddleware(webpack(webpackConfig)));
+```
+
+Finally, we need to configure our app to ignore the `client` folder when watching our files with nodemon(otherwise our server will restart unnecessarily). Add an ignore flag to the the `dev` script in your `package.json`:
 
 ```
 "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js --ignore client"
 },
 ```
 
-Now we can simply run `npm run dev` once and Nodemon will watch for changes we make to our server.
+That should be about it! Start your server and open up a new browser window for `localhost:5000`, you should see your "Hello, world!" message. You should also still be able to navigate to `localhost:5000/graphql` to open up the GraphiQL interface.
 
-Go to `http://localhost:5000/graphql` to test out your queries.
+## Preconfigured Styling
 
-## Writing Mutations
+We've created a basic CSS file as a starting point for your styling for this application. You will need to perform a few steps to add it to your project:
 
-Let's create a mutation to add a relative to a god. So far, we've been able to use built-in Mongoose methods to write each of our mutations (`findOneAndUpdate`, `remove`). However, most of the time there is simply no built-in method which can handle our needs. In these cases, we will have to write our own static methods on the corresponding model, just as we did to find relatives for the God type.
+* Create a new directory called `public` and put your downloaded `style.css` within it
 
-Let's write the first one together. The mutation itself is very straightforward.
+* Configure express to allow access to this directory from the frontend by adding the following line in in `server/server.js` file: `app.use(express.static('public'));`
 
-```js
-// ...
-addGodRelative: {
-    type: GodType,
-    args: {
-        godId: { type: GraphQLID },
-        relativeId: { type: GraphQLID },
-        relationship: { type: GraphQLString }
-    },
-    resolve(parentValue, { godId, relativeId, relationship }) {
-        return God.addRelative(godId, relativeId, relationship);
-    }
-},
-// ...
+* Add the stylesheet to `client/index.html` (`<link rel="stylesheet" type="text/css" href="/style.css">`)
+
+## Configuring Apollo
+
+Now that we have finished the legwork of setting up React, let's configure the Apollo client and provide the cache to our application. Let's start by installing the npm packages we need to use Apollo in our application: `apollo-boost`, `react-apollo`, and `apollo-cache-inmemory`.
+
+```
+npm install apollo-boost react-apollo apollo-cache-inmemory
 ```
 
-However, some complexity arises when we write the static method on the God model. Let's tackle it piece by piece. First, we define our `addRelative` method:
+We'll start by configuring the cache for the Apollo Store. As we covered in the readings we can configure the Apollo Store to normalize the state shape so that all results returned from the server will have the `id` of the object pointing to the object itself. We'll do this using `dataIdFromObject` on all the data being returned from the backend. Add the following code to `client/index.js`:
 
 ```js
-GodSchema.statics.addRelative = (godId, relativeId, relationship) => {
-  const God = mongoose.model("god");
-};
-```
+import { InMemoryCache } from "apollo-cache-inmemory";
 
-However, we run into some difficulty right away. Although we can retrieve a single resource using `God.find`, we cannot call that method twice in order to retrieve two gods - Mongoose will throw an error. We could possibly call `mongoose.model('god')` a second time and assign it to another variable, but this would get messy quickly - how do we handle all of these promises and their results?
-
-Fortunately, Mongoose allows us to query for multiple properties at once. We just have to modify the value of our query to take in an object with the key `$in`:
-
-```js
-God.find({
-  _id: { $in: [godId, relativeId] }
+/* Since we know our ids from Mongo will be unique we can use the `object.id` 
+here for mapping our state shape within the `InMemoryCache`. Now the cache state 
+shape will be {object.id: object} */
+const cache = new InMemoryCache({
+  dataIdFromObject: object => object.id || null
 });
 ```
 
-As you might expect, the result of this query is returned in an array. You might also expect the results to match the order of the arguments which are passed in; however, this is not the case. Mongoose simply queries the database and adds results to the array as they are found. This means that our gods can be returned in any order, so we will need to find a way to determine which is which:
+Now we can instantiate the Apollo client, passing in a configuration object. We will configure the client to use our `localhost:5000/graphql` endpoint, utilize the cache we have just created, and log errors to the console.
 
 ```js
-God.find({
-    '_id': { $in: [
-        godId,
-        relativeId
-    ]}})
-    .then(gods => {
-        const god = godId === gods[0].id ? gods[0] : gods[1];
-        const relative = relativeId === gods[0].id ? gods[0] : gods[1];
+// client/index.js
+import ApolloClient from "apollo-boost";
+
+// ...
+
+const client = new ApolloClient({
+  uri: "http://localhost:5000/graphql",
+  // using the cache we just created
+  cache: cache,
+  onError: ({ networkError, graphQLErrors }) => {
+    console.log("graphQLErrors", graphQLErrors);
+    console.log("networkError", networkError);
+  }
+});
 ```
 
-Now that we know which is which, we can build out the relationships depending on the value of the relationship string passed into the static method:
+Before we move on, we'll create one last file → `App.js`. Create a `components` directory and within create an `App.js` file:
 
 ```js
-GodSchema.statics.addRelative = (godId, relativeId, relationship) => {
-  const God = mongoose.model("god");
+// client/components/App.js
+import React from "react";
 
-  return God.find({
-    _id: { $in: [godId, relativeId] }
-  }).then(gods => {
-    const god = godId === gods[0].id ? gods[0] : gods[1];
-    const relative = relativeId === gods[0].id ? gods[0] : gods[1];
+const App = () => <div>Routes go here!</div>;
 
-    switch (relationship) {
-      case "parent":
-        god.parents.push(relative);
-        relative.children.push(god);
-        break;
-      case "child":
-        god.children.push(relative);
-        relative.parents.push(god);
-        break;
-      case "sibling":
-        god.siblings.push(relative);
-        relative.siblings.push(god);
-        break;
-    }
+export default App;
+```
 
-    return Promise.all([god.save(), relative.save()]).then(
-      ([god, relative]) => god
-    );
-  });
+Back in `index.js`, we can now wrap our entire application with the Apollo Provider. Import the `App` component and the `HashRouter` (from `react-router-dom`) so that we can add routes to our application down the road. Now import `ApolloProvider` from `react-apollo` and add it to the Root component, along with `App` and the `HashRouter`:
+
+```js
+// client/index.js
+import { ApolloProvider } from "react-apollo";
+
+const Root = () => {
+  return (
+    // set up the ApolloProvider tag with the Apollo client we set up earlier
+    <ApolloProvider client={client}>
+      <HashRouter>
+        <App />
+      </HashRouter>
+    </ApolloProvider>
+  );
 };
 ```
 
-`Promise.all` returns an array with all of our results, but we only care about returning the god we added a relative to.
+Later on we will nest our routes within the `App` component. Now that we've wrapped `App` in both the `ApolloProvider` and the `HashRouter` tags we've ensured that all our routes within the `App` component will have access to global history as well as the Apollo cache from the Apollo Provider.
 
-Make sure to test your new mutation in GraphiQL before you move on.
+## Creating the first component
 
-As you can see, writing mutations in GraphQL can become a difficult exercise. It requires a good understanding of the server we are working with, and we have to explicitly define the information returned from our resolve functions. However, this hard work will pay off later when we build the frontend of our application.
+With Apollo configured, we can move on to creating our first component. Let's begin by creating a home page which shows a list of all the gods in our database.
 
-## Mutations Continued
+Before we can do that, we need to write a query to fetch the gods. Run `npm install graphql-tag` from the root directory to install the `graphql-tag` tag library. Now, navigate to `client` and create a new directory named `graphql`. This directory will be where we store all our frontend GraphQL queries and later our frontend mutations.
 
-You will be writing the remaining mutations for this project. You will be able to use built in Mongoose methods to resolve some of them. For others, you will need to write a static method on the corresponding model to keep your code clean. There is rarely a one-size-fits-all solution when it comes to writing GraphQL mutations. Instead, you should utilize your knowledge of Mongoose and JavaScript to approach each mutation individually.
-
-Write the following mutations and make sure to test each one to make sure everything works correctly!
-
-* `removeGodRelative`
-
-* `addGodEmblem`
-
-* `removeGodEmblem`
-
-* `updateGodAbode`
-
-* `addGodDomain`
-
-* `removeGodDomain`
-
-* `newAbode`
-
-* `deleteAbode`
-
-* `updateAbode`
-
-* `newEmblem`
-
-* `deleteEmblem`
-
-* `updateEmblem`
-* ``
-
-<br />
-
----
-
-<br />
-
-# MERN Fundamentals
-
-## MongoDB
-
-*MongoDB is a document-based NoSQL database that is scalable and flexible.*
-
-### Document-based
-
-MongoDB stores data using a document data structure. **Documents** are JSON-like objects with key-value pairs. Documents with similar data are stored within **collections**. To compare it to a relational database, a document is similar to a row while a collection is similar to a table.
-
-Let's take a look at an example of a `user` document.
-
-```
-    {
-        _id: ObjectId("5d8d5b50a5b9d4a3c402f571"),
-        username: "i_love_walking",
-        email: "walker@walkingisgreat.com",
-        password_digest: "Ke&63h1z$mK9jd37n",
-        age: 28,
-        address: {
-            city: "Generic City Name",
-            street: "Somewhere Lane",
-            zipcode: 1
-        },
-        posts: [
-            ObjectId("4a1h3m42a5b9d4i9dc405l721"),
-            ObjectId("b9x2m45a5b7h7e3ml403a091"),
-            ObjectId("1k3b5f87x5s6c7i2mp814g524")
-        ]
-    }
-```
-
-You may have noticed the several different datatypes being stored in the document above. This is one of the benefits of using this document data-structure. We are able to store not only arrays, but sub-documents as well. The sub-document in this example is the value of the address key.
-
-### Embedding
-
-Storing sub-documents within a document is know as embedding. Embedding related information provides better read performance, as well as the ability to retrieve related data with a single database query. Additionally, embedded data models make it possible to update related data in a single operation.
-
-You should use an embedded data model when you are trying to model the following:
-
-* One-to-One relationships
-
-* Small One-to-Many relationships
-
-An **important** thing to keep in mind is that MongoDB documents have a size limit of 16 megabytes. This essentially means that there is a limit to how much you can embed within a document. A good rule of thumb is if you are expecting to embed 50 or more sub-documents within a document then you should break those sub-documents out into their own collection. You can then utilize **referencing** to model their relationships.
-
-### Referencing
-
-You may have also noticed in the example user document, there are several ObjectIds stored within the posts array. These ObjectIds hold a reference to a document in a separate collection. This pattern is known as **referencing**.
-
-**Referencing** will seem very familiar after working with a relational database. However, the benefits of embedding are lost when we use referencing. Despite this, here are a few situations where we might need to use referencing:
-
-* Many-to-Many relationships
-
-* Modeling large hierarchical data sets
-
-* Large One-to-Many relationships
-
-The advantages of using documents are:
-
-* Documents (i.e. objects) correspond to native data types in many programming languages.
-
-* Embedded documents and arrays reduce need for expensive joins.
-
-* Dynamic schema supports fluent polymorphism
-
-### NoSQL
-
-NoSQL databases are non-relational databases, and one of the best ways to understand them is to compare them to relational databases. We will break down a few of the differences in this section.
-
-First, the most basic way that SQL and NoSQL databases differ is in how they store data. SQL databases store data in tables where each row may represent an object. NoSQL databases can store data in several different ways other than tables. These include:
-
-* Documents
-
-* Graphs
-
-* Key-value pairs
-
-* Wide-column stores
-
-MongoDB, as mentioned in the previous section, stores data using a document data structure.
-
-Second, SQL databases require a strict, predefined schema before you are able to start adding data to it. NoSQL databases have a dynamic schema, meaning you don't need to have the schema completely defined before adding data to the database.
-
-Third, SQL databases follow ACID properties while NoSQL databases tend to follow the Brewer's CAP theorem. These acronyms are summarized below, however we would recommend reading up on them further.
-
-**ACID:**
-
-* *Atomicity*
-
-    + All components of a transaction are treated as a single action.
-
-* *Consistency*
-
-    + All transactions must follow the defined rules of the database, such as constraints.
-
-* *Isolation*
-
-    + Concurrently executed transactions result in the same database state as if they were sequentially executed.
-
-* *Durability*
-
-    + Once a transaction is committed, it will persist and cannot be undone by something like a system failure.
-
-**CAP theorem:**
-
-* *Consistency*
-
-    + All duplicates of the same data will be the same value across a distributed system.
-
-* *Availability*
-
-    + All nodes within a system can process operations and respond to queries.
-
-* *Partition tolerance*
-
-    + The system continues to operate despite any unplanned network connectivity loss between nodes.
-
-It is important to note that according to the CAP theorem, in the case of a network partition, one must choose between consistency and availability. Specifically, MongoDB chooses to keep consistency over availability by not accepting writes to a system until it believes it can safely do so.
-
-Finally, SQL databases are centralized databases, while NoSQL databases are distributed databases. A centralized database is one that is stored in a single location. A distributed database is a collection of multiple, logically interrelated databases.
-
-### Scalable
-
-As we mentioned above, NoSQL databases are distributed databases. This makes them able to be scaled horizontally by just adding more machines to your pool of resources.
-
-In contrast, centralized databases are vertically scalable. You would have to add more power (CPU, RAM) to the single machine that the database is being held on.
-
-Relatively speaking, it is much cheaper and accessible to add additional machines to a pool than it is to upgrade one machine.
-
-### Scalable
-
-MongoDB's flexibility comes primarily from its utilization dynamic schemas as well as the document data structure.
-
-A dynamic schema allows you to start with a basic schema that can be updated easily. This has been important to more modern apps and companies, because it aids their teams in building a base app quickly and adapting it as needed.
-
-Recall that the document data structure is JSON-like. It is able to store a variety of different data types, but more importantly, it can be directly interfaced within our backend code. You no longer need to use an ORM (e.g. Active Record) to map data from a database to an object that you can easily interface with. This speeds up the development process as you have one less thing to worry about.
-
-<br />
-
----
-
-<br />
-
-## Mongoose
-
-Mongoose is an object data modeling (ODM) library for MongoDB and Node.js. It provides an API to model the data in our database. You can think of it as a NoSQL equivalent of an ORM. To relate it to a technology that you have used before, Mongoose serves the same purpose for MongoDB that Active Record serves for Rails.
-
-### Why Mongoose?
-
-Now, you may have noticed that in the MongoDB reading, we mentioned that a benefit of MongoDB is that we don't need to use an ORM. So why are we asking you to use one?
-
-The main reason is to make it an easier transition from a relational database to a non-relational database. Using Mongoose makes it similar to the workflow you used during your Full Stack Project. You can define a schema to work with your collections. More importantly, Mongoose gives you some nice methods to define validations on your schema as well! Just remember that it is not necessary to use Mongoose to do these things, it just makes it a little easier to do so.
-
-### Mongoose's Model.Populate()
-
-The properties that we want to `.populate()` on are properties that have a type of *`mongoose.Schema.Types.ObjectId`*. This tells Mongoose "Hey, I'm gonna be referencing other documents from other collections". The next part of the property is the ref. The ref tells Mongoose "Those docs are going to be in the ____ collection."
-
-So in our User schema, we reference the Post collection, because we want the user to be tied to things they post, and we want to be able to easily access those posts w/o having to create more queries.
-
-#### Correctly Creating Users and Posts
-
-After linking other collections in your schema using the appropriate *type* and *ref*, your *actual stored data* for that property will be *another document's _id*. It will be stored as a string. This also works for an array of `_id`s.
-
-So while your schema says this:
+Within `graphql`, create a new file called `queries.js` and add the following code:
 
 ```js
-const UserSchema = new mongoose.Schema({
-    username: String,
-    posts: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Post'
-    }]
-  })
-```
+import gql from "graphql-tag";
 
-Your actual stored property should read something like this:
-
-```js
-{
-  _id: 59ab1c92ea84486fb4ba9f28,
-  username: JD,
-  posts: [
-    "59ab1b43ea84486fb4ba9ef0",
-    "59ab1b43ea84486fb4ba9ef1"
-  ]
-}
-```
-
-Keep in mind that this is your *stored document*. We have not called `.populate()` on it yet. Once it is called, it will go to the appropriate collection, search for two `_id`s, and return your user, but now w/ an array of her actual posts.
-
-#### Implementing .Populate()
-
-Here's the function:
-
-```js
-function getUserWithPosts(username){
-  return User.findOne({ username: username })
-    .populate('posts').exec((err, posts) => {
-      console.log("Populated User " + posts);
-    })
-}
-```
-
-`.populate()` needs a query to attach itself to, so we are using `User.findOne()` to find a user who matches the username we provide in the argument. This returns our user document. This is when `.populate()` takes over. You'll notice I am providing 'posts' to our `.populate()`. By providing the 'posts' argument, we've told `.populate()` what property in our user document we want it to work with. Calling `.exec()` just executes something once `.populate()` has done it's thing. The log prints this:
-
-```js
-{ 
-  _id: 59ab1c92ea84486fb4ba9f28,
-  username: 'JD',
-  posts:
-    [ 
-      { 
-        _id: 59ab1b43ea84486fb4ba9ef0,
-        content: "Is it dark out?"
-      },{
-        _id: 59ab1b43ea84486fb4ba9ef1,
-        content: "Hey anyone got a cup of sugar?"
+/* Use gql with a template literal to construct graphql queries */
+export default {
+  FETCH_GODS: gql`
+    query FetchGods {
+      gods {
+        id
+        name
+        description
       }
-    ]
+    }
+  `
+};
+```
+
+Now that we have our query written we can move on to create a `GodsList` component. Within `components`, create a new directory called `gods`, and within that directory create a new file called `GodsList.js`.
+
+Here, you should import React and the `FETCH_GODS` query you just wrote. We will be utilizing Apollo's `Query` component from `react-apollo`, as well as the `Link` component from `react-router-dom` so make sure to import those as well.
+
+The `GodsList` component will be a functional component with a `ul` tag wrapped around our `Query` component. We then will pass the Query component the `FETCH_GODS` query as its query prop so that when the `Query` component mounts the first thing it will do is attempt to run the passed in `FETCH_GODS` query.
+
+```js
+// src/components/gods/GodsList.js
+import Queries from "../../graphql/queries";
+const { FETCH_GODS } = Queries;
+
+const GodsList = () => {
+  return (
+    <div className="outer">
+      <ul>
+        <Query query={FETCH_GODS}>{() => {}}</Query>
+      </ul>
+    </div>
+  );
+};
+```
+
+Then in the `children` props for the `Query` component (the callback function within it), we will handle the loading and error state.
+
+```js
+// src/components/gods/GodsList.js
+const GodsList = () => {
+  return (
+    <div className="outer">
+      <ul>
+        <Query query={FETCH_GODS}>
+          {({ loading, error }) => {
+            if (loading) return <p>Loading...</p>;
+            if (error) return <p>Error</p>;
+          }}
+        </Query>
+      </ul>
+    </div>
+  );
+};
+```
+
+Finally, we map over the return value of our query, `data`, and create a new list item for each god. We will include each God's name and description as well as a `<Link/>` for each god based on their ID (we will create a detail component later). Put all together the component looks like this:
+
+```js
+// src/components/gods/GodsList.js
+import React from "react";
+import { Query } from "react-apollo";
+import { Link } from "react-router-dom";
+
+// import our FETCH_GODS query
+import Queries from "../../graphql/queries";
+// we denote FETCH_GODS with a constant for clarity that
+// this is a GraphQL syntax tree object and only for queries
+const { FETCH_GODS } = Queries;
+
+const GodsList = () => {
+  return (
+    <div className="outer">
+      <ul>
+        <Query query={FETCH_GODS}>
+          {({ loading, error, data }) => {
+            if (loading) return <p>Loading...</p>;
+            if (error) return <p>Error</p>;
+
+            return data.gods.map(({ id, name, description }) => (
+              <li key={id}>
+                <Link to={`/gods/${id}`}>
+                  <h4>{name}</h4>
+                </Link>
+                <p className="description">Description: {description}</p>
+              </li>
+            ));
+          }}
+        </Query>
+      </ul>
+    </div>
+  );
+};
+
+export default GodsList;
+```
+
+Now, let's return to `App.js` and add this component as the default view for our application. Import `GodsList` from the component directory and add a route for it nested under `App`:
+
+```js
+const App = () => {
+  return (
+    <div>
+      <Route exact path="/" component={GodsList} />
+    </div>
+  );
+};
+```
+
+Refreshing `localhost:5000`, you should see a list with the name and description of each god in your database.
+
+## First Mutation
+
+We have this nice list showing but now it's time to add some functionality. Let's create a button which allows us to delete gods from the index page. If you want to look over the mutation you wrote for this purpose yesterday take a look inside of `server/schema/mutations.js`. We'll now be creating a frontend mutation that will utilize the `deleteGod` mutation we wrote in the backend.
+
+Within the `graphql` directory, create a new file called `mutations.js`. We'll set up this file in the same way we setup the `queries.js` file - by exporting a large object with all our mutations inside. Here will be the setup for our first mutation:
+
+```js
+import gql from "graphql-tag";
+
+export default {
+  /* Make sure to use the `mutation` key word when creating our frontend 
+  mutations just like we would in GraphiQL */
+  DELETE_GOD: gql`
+    mutation DeleteGod($id: ID) {
+      deleteGod(id: $id) {
+        id
+      }
+    }
+  `
+};
+```
+
+Since the mutation component we are about to write is reasonably lengthy, we'll create a separate component for it. In `components/gods`, create a new file called `DeleteGod.js`. In this component, we make use of the `Mutation` component from the `react-apollo` library. We'll import the `DELETE_GOD` mutation and add it as the mutation prop for the `Mutation` component:
+
+```js
+import { Mutation } from "react-apollo";
+
+// Import our DELETE_GOD mutation
+import Mutations from "../../graphql/mutations";
+const { DELETE_GOD } = Mutations;
+
+const DeleteGod = props => {
+  return (
+    <Mutation mutation={DELETE_GOD}> {(deleteGod, { data }) => {}}</Mutation>
+  );
+};
+```
+
+The `Mutation` component also receives a `children` prop (a callback within the component). The first argument of the callback function `deleteGod` specifies the name of the function which, when invoked, will run this mutation. When we call this function, we need to pass it an argument containing the variables to be passed into the mutation. Since we know our `DELETE_GOD` mutation requires an `id` we can pass it the `id` this component will receive as a prop from the `GodList` component. The second argument we receive back from this mutation is an object with our mutation results.
+
+Here is what our DeleteGod looks like:
+
+```js
+// src/components/DeleteGod.js
+import React from "react";
+import { Mutation } from "react-apollo";
+
+import Mutations from "../../graphql/mutations";
+const { DELETE_GOD } = Mutations;
+
+const linkStyle = {
+  cursor: "pointer",
+  fontSize: "10px",
+  color: "red"
+};
+
+const DeleteGod = props => {
+  return (
+    <Mutation mutation={DELETE_GOD}>
+      {(deleteGod, { data }) => (
+        <a
+          style={linkStyle}
+          onClick={e => {
+            e.preventDefault();
+            deleteGod({ variables: { id: props.id } });
+          }}
+        >
+          <p>Delete</p>
+        </a>
+      )}
+    </Mutation>
+  );
+};
+
+export default DeleteGod;
+```
+
+Now, we simply need to import our newly created component to `GodsList` and add it to the list item for each god:
+
+```js
+// src/components/gods/GodsList.js
+<li key={id}>
+  <Link to={`/gods/${id}`}>
+    <h4>{name}</h4>
+  </Link>
+  <p className="description">Description: {description}</p>
+  <DeleteGod id={id} />
+</li>
+```
+
+Test our your new component and.. wait? What? It didn't work? That's because the Apollo Store hasn't been informed that this God has been deleted. Even though we returned the `id` from the mutation it won't know to delete all reference to that `id` in the Apollo Store. Head back to `DeleteGod.js` and let's fix that.
+
+As we covered in the readings last night we can pass a `prop` to the `Mutation` component to `refetchQueries` whenever our Mutation has been run. The `refetchQueries` functions does just as it's name implies and will refetch the information for the supplied query automatically once our mutation has run:
+
+```js
+// src/components/gods/DeleteGod.js
+  <Mutation
+      mutation={DELETE_GOD}
+      refetchQueries={() => {
+        return [
+          {
+            query: FETCH_GODS
+          }
+        ];
+      }}
+    >
+```
+
+Now try deleting a god once more and you should have your UI successfully update!
+
+## Further Queries
+
+In the following sections of this project we will be creating components for the purpose of creating new gods, emblems, and abodes. Additionally, we will create a component for detailed information on each god.
+
+As you can imagine we will need to create a number of queries in order to accomplish this. Write these queries on your own - make sure you return complete information for each query (including `id`) and test them out in `GraphiQL` as you go.
+
+Recall, if we need the Apollo Store to automatically update the data it has mapped internally to `{object.id}: object` we will need to make sure each query returns an `id` of whatever you are  querying for.
+
+Add the following queries to your `queries.js` file, written using the `graphql-tag`. Below each query is the list of things that query should return.
+
+1. **fetchAbode**: Should accept an `id` of an abode and return the `id`, `name`, and `coordinates` of that abode.
+
+2. **fetchAbodes**: Should return the `id` and `name` of all abodes.
+
+3. **fetchEmblems**: Should return the `id` and `name` of all emblems.
+
+4. **fetchGod**: Should accept a gods' `id` and return:
+
+  * id
+
+  * name
+
+  * type
+
+  * description
+
+  * domains
+
+  * abode
+
+    * id
+
+    * name
+
+  * emblems
+
+    * id
+
+    * name
+
+  * parents
+
+    * id
+
+    * name
+
+  * children
+
+    * id
+
+    * name
+
+  * siblings
+
+    * id
+
+    * name
+
+5. **fetchParents**: Should accept an `id` and return the `id` and `name` of each of the parents of that God.
+
+6. **fetchSiblings**: Should accept an `id` and return the `id` and `name` of each of the siblings of that God.
+
+7. **fetchChildren**: Should accept an `id` and return the `id` and `name` of each of the children of that God.
+
+## Create new god
+
+We now all have our queries ready for fetching let's get started by creating a component which will allow us to create a new god. First, we need to start by writing the necessary mutation:
+
+```js
+// client/graphql/mutations.js
+
+export default {
+  //...
+  NEW_GOD: gql`
+    mutation NewGod($name: String, $type: String, $description: String) {
+      newGod(name: $name, type: $type, description: $description) {
+        id
+        name
+        description
+      }
+    }
+  `
+};
+```
+
+Now that we have our query let's write our new component. Create a new directory within the `components` directory named `create`. This is where all of our forms will live. Make a new file within `create` called `GodCreate.js`, import React and the `Mutation` component, as well as your newly created mutation:
+
+```js
+import React, { Component } from "react";
+import { Mutation } from "react-apollo";
+
+import Mutations from "../../graphql/mutations";
+const { NEW_GOD } = Mutations;
+
+class GodCreate extends Component {
+  constructor(props) {
+    super(props);
+  }
+}
+```
+
+Since this is a form for creating a new God we can set the state of our component to reflect what a God requires to be created `name`, `type`, and `description`. Additionally, we want to display a success message to our user once the god is successfully created, so our state our state will also include a `message` field.
+
+The `Mutation` component we need to write in the render method is a bit tricky - we'll walk through what's happening slowly. First thing we'll return in the `GodCreate` component's `render` function is a `Mutation` component. The `Mutation` component will accept the `NEW_GOD` mutation as it's mutation prop.
+
+```js
+// remember to import your queries!
+
+render() {
+    return (
+      <Mutation
+        mutation={NEW_GOD}
+      >
+        {() => {}}
+        </Mutation>
+    );
+}
+```
+
+Now to handle what will be inside the `Mutation` component callback. So we know the first argument in the callback of a `Mutation` component is the function to be invoked for our mutation to run, and the second argument is the returned data. We'll focus more on those in a minute but for now we'll just pass them in:
+
+```js
+render() {
+    return (
+      <Mutation
+        mutation={NEW_GOD}
+      >
+        {(newGod, {data}) => {}}
+        </Mutation>
+    );
+}
+```
+
+Now let's build our form! Inside the return value for the inner `Mutation` component callback create a `<form>` tag we'll use to wrap all our inputs. Create an `input` tag for a Gods' name, a `textarea` tag for a god's description, and a `select` tag for the god's type with the two `options` of "God" or "Goddess". Finally create a `submit` button for creating a god.
+
+Create functions that will update the component's state based on when a user changes the value inside of any of the given inputs.
+
+Once that's all set up we will now write a function for `handleSubmit` on our `form` tag. This `handleSubmit` function will accept the submit event and the `newGod` function our `Mutation` callback passed in.
+
+Like it's name implies `handleSubmit` will be in charge of the submit logic for this mutation. Take a look at the function we wrote below:
+
+```js
+  handleSubmit(e, newGod) {
+    e.preventDefault();
+    let name = this.state.name;
+
+    // our newGod function will accept an object with the key of "variables" pointing to an object with all our passed in variables.
+    newGod({
+      variables: {
+        name: name,
+        type: this.state.type,
+        description: this.state.description
+      }
+    })
+    // after our mutation has run we want to reset our state and show our user the success message
+    .then(data => {
+      console.log(data);
+      this.setState({
+        message: `New god "${name}" created successfully`,
+        name: "",
+        type: "god",
+        description: ""
+      });
+    })
   }
 ```
 
-And like magic, we have created a unified object using 2 schemas, 2 models, and 2 collections.
+Since we are adding new data we will want to make sure to update our `cache` when the mutation to add a new God goes through. We could use `refreshQueries` again but since all we'll be doing is adding a new god to our list of gods, running an entirely new query is wasteful. We'll start by adding the `update` prop to our `Mutation` component. As a reminder: the `update` function will give you access to the cache as the first argument and the data returned from the mutations at the second. We can handle the logic for updating the cache in a separate function elsewhere by passing these arguments off like so:
 
-<br />
+```js
+<Mutation mutation={NEW_GOD} update={(cache, data) => this.updateCache(cache, data)} >
+```
 
----
+Now let's tackle the `updateCache` function. In this function we will want to do two things: read the cache using `cache.readQuery` and then write to the cache adding our new god using `cache.writeQuery`.
 
-<br />
+We want to make sure our God Index refreshes whenever we add a new god so we'll be updating our `FETCH_GODS` query. The first thing we need to do is read what is currently in the cache for that query:
 
-## Express
+```js
+// we are destructing here to make our code more readable
+updateCache(cache, { data: { newGod } }) {
+  let { gods } = cache.readQuery({ query: FETCH_GODS });
+}
+```
 
-Express is a web application framework for Node. It provides us with tools for the following things:
+Then we need to write over our old query with it's previous results plus our new God:
 
-1. Write handlers to respond to different HTTP verb requests at different URL paths.
+```js
+updateCache(cache, { data: { newGod } }) {
+  let { gods } = cache.readQuery({ query: FETCH_GODS });
+    // then we write over our results
+    cache.writeQuery({
+      query: FETCH_GODS,
+      data: { gods: gods.concat(newGod) }
+    });
+}
+```
 
-    + Similar to defining routes and controller methods in our Fullstack Projects, you will use Express to turn your backend into an API that your frontend will use to retrieve information.
+Pretty simple right? But what if our cache is empty? Say a user refreshes on the page to create a new god so we no longer have any data in our Apollo cache. If you attempt to read a cache that does not currently have the data for the query you are looking for Apollo will throw a hard error and your application will crash. Well we can't have that can we? We can utilize JavaScript's `try` and `catch` to get around this limitation:
 
-2. Integrate w/ "view" rendering engines to generate responses by inserting data to templates.
+```js
+  updateCache(cache, { data: { newGod } }) {
+    let gods;
+    try {
+      // we'll try to read from our cache but if the query isn't in there no sweat!
+      // We only want to update the data if it's in the cache already - totally fine if the data will
+      // be fetched fresh later
+      gods = cache.readQuery({ query: FETCH_GODS });
+    } catch (err) {
+      return;
+    }
 
-    + Express can also function similar to Rails by serving up 'views' as a response to a request. However, your frontend will be handled primarily by React and Redux so you will not be using this functionality.
+  // then our writeQuery will only run IF the cache already has data in it
+    if (gods) {
+      let godArray = gods.gods;
 
-3. Set common web application settings like tje port to use for connecting, and the location of the templates that are used for rendering the response.
+      cache.writeQuery({
+        query: FETCH_GODS,
+        data: { gods: godArray.concat(newGod) }
+      });
+    }
+  }
+```
 
-    + This is probably not something that you have done when using Rails.
+One last step: we'll add a `p` tag outside of our form tag to show the user the success message. Putting together what we've built so far your render function should look something like this:
 
-4. Add additional request processing "middleware" at any point within the request handling pipeline.
+```js
+render() {
+  return (
+    <Mutation
+      mutation={NEW_GOD}
+      update={(cache, data) => this.updateCache(cache, data)}
+    >
+      {(newGod, { data }) => (
+        <div>
+          <form onSubmit={e => this.handleSubmit(e, newGod)}>
+            <input
+              onChange={this.update("name")}
+              value={this.state.name}
+              placeholder="Name"
+            />
+            <select value={this.state.type} onChange={this.update("type")}>
+              <option value="god">God</option>
+              <option value="goddess">Goddess</option>
+            </select>
+            <textarea
+              value={this.state.description}
+              onChange={this.update("description")}
+              placeholder="description"
+            />
+            <button type="submit">Create God</button>
+          </form>
+          <p>{this.state.message}</p>
+        </div>
+      )}
+    </Mutation>
+  );
+}
 
-    + Express middleware is similar to Rails controller callbacks, such as `before_action` or `after_action`. They allow you to apply some code or logic to HTTP requests or responses at any point during the request pipeline of your app.
+export default GodCreate;
+```
 
-While *Express* itself is fairly minimalist, developers have created compatible middleware packages to address almost any web development problem. There are libraries to work w/ cookies, sessions, user logins, URL parameters, `POST` data, security headers, and *many* more.
+Add a route for your `GodCreate` component in `App` and test it out in the browser. Once you have created a new god, it should be immediately visible on your index page. Try refreshing on your new route for creating a God and ensure everything works perfectly.
 
-Routes, middleware, error handling, and template code make up the main parts of an Express app.
+### EmblemCreate
 
-<br />
+Add a component which allows you to create a new emblem. This component will be very similar to the `GodCreate` component, although it will be even simpler since an emblem requires only a single field. Use the update function for this component to update the `FETCH_EMBLEMS` query it it already exists in our cache.
 
----
+### AbodeCreate
 
-<br />
+Write a component to create a new abode. You only need to include the `name` and `coordinates` fields - we will later add abodes for gods on their detail pages. Use the `update` function for this component to update the `FETCH_ABODES` query it it already exists in our cache.
 
-## React
+### Create Index
 
-### Axios
+Rather than utilizing different routes for the creation of each new type, it would be helpful to have a `Create` component which allows us to create a singular `/new` route and allows us to switch between each form. Write this on your own, or feel free to use the one we wrote:
 
-You have already been introduced to React and Redux so we will not be reiterating what it is here. However, you will be using a new technology, Axios, in the frontend of your app.
+```js
+import React, { Component } from "react";
+import GodCreate from "./GodCreate";
+import AbodeCreate from "./AbodeCreate";
+import EmblemCreate from "./EmblemCreate";
 
-Axios is a promise based HTTP client that can be used in both the browser and a Node environment. This essentially means that you can use the Axios library to make XMLHttpRequests from the browser or HTTP requests from your Node environment.
+class Create extends Component {
+  constructor(props) {
+    super(props);
 
-You will mainly be utilizing Axios to make your frontend AJAX calls instead of jQuery's `$.ajax` method. We recommend you look through the [Axios documentation](https://github.com/axios/axios). You'll need to reference it during the upcoming project!
+    this.state = {
+      createType: "god"
+    };
 
-<br />
+    this.updateSelection = this.updateSelection.bind(this);
+  }
 
----
+  updateSelection(e) {
+    e.preventDefault();
+    this.setState({ createType: e.target.value });
+  }
 
-<br />
+  render() {
+    let form;
 
-## Node
+    if (this.state.createType === "god") {
+      form = <GodCreate />;
+    } else if (this.state.createType === "abode") {
+      form = <AbodeCreate />;
+    } else if (this.state.createType === "emblem") {
+      form = <EmblemCreate />;
+    }
 
-### What is Node.js?
+    return (
+      <div className="styled-select slate">
+        <select onChange={this.updateSelection}>
+          <option value="god">God</option>
+          <option value="abode">Abode</option>
+          <option value="emblem">Emblem</option>
+        </select>
+        <h4>Create a new {this.state.createType}</h4>
+        {form}
+      </div>
+    );
+  }
+}
 
-Node.js is a JavaScript runtime environment. In other words, it is an environment where you can run application code. JavaScript was originally designed only to be used in browsers. Node allows us to utilize JavaScript code outside of the browser in order to build network applications. 
+export default Create;
+```
 
-You have already used Node to help manage your React app's dependencies as well as run webpack to bundle your JavaScript. Now you will be taking it one step further and using it as a runtime for your server to have a truly full-stack JavaScript app!
+Now we can add a route to this component in `App.js`:
 
-The main benefit of using Node, is that we can take advantage of JavaScript's asynchronicity.
+```js
+const App = () => {
+  return (
+    <div>
+      <Route exact path="/" component={GodsList} />
+      <Route exact path="/new" component={Create} />
+    </div>
+  );
+};
+```
 
-Normally, your server would not be able to process two requests at the same time. In other words, the server cannot process an additional request until the first is completed. This problem is called *blocking*. There are ways that blocking can be handled, such as multi-threading, however Node.js does not use multi-threading to solve the blocking problem. 
+### Navigation
 
-Node.js makes it easy for you to allow multiple events to occur concurrently by utilizing JavaScript's asynchronicity. Each event would be handled by JavaScript's event loop just as asynchronous functions would in a browser.
+At this point, it would be useful to create a small navigation component so that we do not have to enter the URLs manually. Write this component on your own, it will be a component that will be present on every page providing a `<Link>` back to the index page and another `<Link>` to `/new`. Add your navigation component to `App.js` so that it will show on every route.
 
-### Why Node.js
+## God Detail
 
-A common task for a web server can be to open a file on the sever and return the content to the client.
+The most important component of our application is the `GodDetail` component. On this page, we will be able not only to view information about a god, but to update it as well. This is where we will add or update a god's abode. It is also where we will handle the addition of relatives to a god's profile, and update information such as emblems, domains, and name/description.
 
-Here is how PHP or ASP handles a file request:
+Here is the basic skeleton for this component, with the render method returning a `Query` component using `FETCH_GOD` to return all the data on a single god. We can retrieve the god's `id` from the URL string:
 
-    1. Sends the task to the computer's file system.
+```js
+import React, { Component } from "react";
+import { Query } from "react-apollo";
+import FETCH_GOD from "../../queries/fetchGod";
 
-    2. Waits while the file system opens and reads the file.
+const GodDetail = props => {
+  render() {
+    return (
+      // there we are getting the `id` for our query from React Router
+      <Query query={FETCH_GOD} variables={{ id: props.match.params.id }}>
+        {({ loading, error, data }) => {
+          if (loading) return <p>Loading...</p>;
+          if (error) return <p>Error</p>;
 
-    3. Returns the content to the client.
+          return <div className="detail" />;
+        }}
+      </Query>
+    );
+  }
+}
 
-    4. Ready to handle the next request.
+export default GodDetail;
+```
 
-Here is how Node.js handles a file request:
+Make sure to add a route for this component and add a `Switch` to make our app easier to navigate:
 
-    1. Sends the task to the computer's file system.
+```js
+const App = () => {
+  return (
+    <div>
+      <Switch>
+        <Route exact path="/gods/:id" component={GodDetail} />
+        <Route exact path="/new" component={Create} />
+        <Route path="/" component={GodsList} />
+      </Switch>
+    </div>
+  );
+};
+```
 
-    2. Ready to handle the next request.
+This component will get complicated quickly if we do not deconstruct it into sub-components. Remember, we need to be able to update all a God's information as well as display it. Because of this, it will be easiest if we create a component for each field on a god, passing in the props needed to render that specific component. Let's write the first of these components together.
 
-    3. When the file system has opened and read the file, the server returns the content to the client.
+## NameDetail
 
-Node.js eliminates the waiting and simply continues w/ the next request.
+Within the components directory, create a new folder called `detail`. Create a new file there called `NameDetail.js`. Here, we will create a component that will utilize the component's state to specify whether or not the user is currently editing the name field. If they are, we will display a form embedded within a `Mutation` component. If they are not, we will simply display the name alongside an icon which they can click on to enter the 'editing' state.
 
-Node.js runs single-threaded, non-blocking, asynchronously programming, which is very memory efficient.
+First step, we create a mutation to update the name of a god:
 
-### What Can Node.js Do?
+```js
+import gql from "graphql-tag";
 
-* Node.js can generate dynamic page content
+export default gql`
+  mutation updateGod($id: ID, $name: String) {
+    updateGod(id: $id, name: $name) {
+      id
+      name
+    }
+  }
+`;
+```
 
-* Node.js can create, open, read, write, delete, and close files on the server
+We've provided you this subcomponent as an example for working on the rest of these smaller detail components. Here is how we wrote our `NameDetail` component:
 
-* Node.js can collect form data
+```js
+import React from "react";
+import { Mutation } from "react-apollo";
+// we added the "react-icons" library to have access to a pencil icon for editting
+import { IconContext } from "react-icons";
+import { FaPencilAlt } from "react-icons/fa";
+import UPDATE_GOD_NAME from "../../mutations/updateGodName";
 
-* Node.js can add, delete, modify data in your database
+class NameDetail extends React.Component {
+  constructor(props) {
+    super(props);
 
-### What is a Node.js File?
+    // since we know we'll be receiving the god's name through props
+    // we can set it in our state
+    this.state = {
+      editing: false,
+      name: this.props.god.name || ""
+    };
 
-* Node.js files contain tasks that will be executed on certain events
+    this.handleEdit = this.handleEdit.bind(this);
+  }
 
-* A typical event is someone trying to access a port on the server
+  // this is the function that will trigger "editing" mode
+  handleEdit(e) {
+    e.preventDefault();
+    this.setState({ editing: true });
+  }
 
-* Node.js files must be initiated on the server before having any effect
+  fieldUpdate(field) {
+    return e => this.setState({ [field]: e.target.value });
+  }
 
-* Node.js files have extension ".js"
+  render() {
+    // if we are editing we'll return a Mutation component
+    if (this.state.editing) {
+      return (
+        <Mutation mutation={UPDATE_GOD_NAME}>
+          {(updateGodName, data) => (
+            <div>
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  updateGodName({
+                    variables: { id: this.props.god.id, name: this.state.name }
+                  }).then(() => this.setState({ editing: false }));
+                }}
+              >
+                <input
+                  value={this.state.name}
+                  onChange={this.fieldUpdate("name")}
+                />
+                <button type="submit">Update Name</button>
+              </form>
+            </div>
+          )}
+        </Mutation>
+      );
+    } else {
+      return (
+        <div>
+          <div
+            onClick={this.handleEdit}
+            style={{ fontSize: "10px", cursor: "pointer", display: "inline" }}
+          >
+            <IconContext.Provider value={{ className: "custom-icon" }}>
+              <FaPencilAlt />
+            </IconContext.Provider>
+          </div>
+          <h2>{this.state.name}</h2>
+        </div>
+      );
+    }
+  }
+}
+
+export default NameDetail;
+```
+
+Now you may have noticed we didn't call either `update` or `refetchQueries` in this Mutation component. That is because our Apollo cache is going to handle updating the `God` everywhere in our application for us. Remember in the beginning of this application when we set up our Apollo Client with a cache:
+
+```js
+// client/index.js
+
+import { InMemoryCache } from "apollo-cache-inmemory";
+const cache = new InMemoryCache({
+  dataIdFromObject: object => object.id || null
+});
+```
+
+We set all our objects to pointing to their `ids` like so: `{[object.id]: object}`. Now whenever we run a mutation to update data that was previously in our cache as long as we return the `id` with that mutation the cache will automatically update that field in the object for you. Don't just believe us though try it out yourself!
+
+We can now add this component to `GodDetail`:
+
+```js
+// client/components/gods/GodDetail.js
+
+return (
+  <div className="detail">
+    <NameDetail id={data.god.id} name={data.god.name} />
+  </div>
+);
+```
+
+Now test that this works and try to change the name of a god or goddess. If the name updates everywhere in your `ui` without refresh then everything is working as it should!
+
+Now we'll continue to build out components on `GodDetail` which allow you to view and update information on a god. Some of these will be just as simple as the `NameDetail` component we just wrote, while others will require an increasing complexity. Sounds like fun right?
+
+### TypeDetail
+
+Write a component which allows you to change the type of a god to `god` or `goddess`. The user should be able to select these options from a dropdown menu, which immediately updates the type upon selection.
+
+### DescriptionDetail
+
+Editing this component should display a textarea with the existing information on a god, allowing the user to edit it and submit the changes.
+
+### DomainsDetail
+
+Each god or goddess has emblems, but they also have domains. For example, Apollo's symbols are the lyre, laurel and wreath, but his domains are music, poetry, and the arts. Domains do not have their own GraphQL type on the server and are instead stored directly on the god in an array. Write a component to show these domains for each god and mutations to allow users to add new domains, and delete old domains. You may want to split this up into separate `AddDomain` and `DeleteDomain` components.
+
+### AbodeDetail
+
+This component is slightly more complex than those previous. We will not only need a `Mutation` Component but also a `Query` component for fetching abodes. When a user is editing a god's abode you will have to use your `FETCH_ABODES` query to populate a dropdown menu containing all of the abodes on your server. Upon selection, update the abode of the selected god.
+
+### EmblemsDetail
+
+This component is similar to the last in that you will need to populate a list of all existing emblems, but although a god can only have one abode, they can have many emblems. Write a component which allows users to add existing emblems to a god. Once an emblem has been added, it should be added to the detail view for that God and removed from the list of emblems which can be added to a god (so you can't re-add the same Emblem).
+
+### RelativesDetail
+
+Write a single component which can display a god's parents, children, or siblings. Pass the relationship type as a prop to the component. Then in the component you'll have to do the work of listing all the possible Gods as a new relative. Make sure that a God can't be their own relative, and that Gods can't be re-added if they are already that kind of relative (no adding the same parent twice).
+
+## Styling
+
+We started you off with a very basic styling sheet but now it's time to practice your CSS skills and make this application shine! Style all the pages you've made so far. Don't hesitate to change up the [colors](https://coolors.co/app) and [fonts](https://fonts.google.com/)!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -339,3 +339,41 @@ Now, once you started your server, you can open `localhost:5000/graphql` and see
 
 ## Mutations setup
 
+Within the `schema` directory, create a new file called `mutations.js`. Add the following code to this file:
+
+```js
+const graphql = require("graphql");
+const { GraphQLObjectType, GraphQLString, GraphQLInt } = graphql;
+const mongoose = require("mongoose");
+
+const mutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {}
+});
+
+module.exports = mutation;
+```
+
+Before moving on, import your mutation file into `schema.js`. We want to make sure our `GraphQLSchema` has both our queries and mutations. So we'll add the imported mutations into the schema object:
+
+```js
+module.exports = new GraphQLSchema({
+  query,
+  mutation
+});
+```
+
+### Write mutations
+
+In order to seed data for our application and be able to later make requests to change data in the frontend you’ll need to write a few mutations. Let's get to it! Complete these on your own:
+
+* `newCategory`
+
+* `deleteCategory`
+
+* `newProduct`
+
+* `deleteProduct`
+
+Test these out in `GraphiQL` to make sure they work. So we have some data to play with seed 3 new categories and 3 new products. Now would be a good time to write a couple of nested queries to make sure your data is all interacting as it should.
+

@@ -377,3 +377,465 @@ In order to seed data for our application and be able to later make requests to 
 
 Test these out in `GraphiQL` to make sure they work. So we have some data to play with seed 3 new categories and 3 new products. Now would be a good time to write a couple of nested queries to make sure your data is all interacting as it should.
 
+The last mutation you'll write for now is `updateProductCategory`. Add the following static method to your Product model:
+
+```js
+// server/models/Product.js
+ProductSchema.statics.updateProductCategory = (productId, categoryId) => {
+  const Product = mongoose.model("products");
+  const Category = mongoose.model("categories");
+
+  return Product.findById(productId).then(product => {
+    // if the product already had a category
+    if (product.category) {
+      // find the old category and remove this product from it's products
+      Category.findById(product.category).then(oldcategory => {
+        oldcategory.products.pull(product);
+        return oldcategory.save();
+      });
+    }
+    // find the Category and push this product in, as well as set this product's category
+    return Category.findById(categoryId).then(newCategory => {
+      product.category = newCategory;
+      newCategory.products.push(product);
+
+      return Promise.all([product.save(), newCategory.save()]).then(
+        ([product, newCategory]) => product
+      );
+    });
+  });
+};
+```
+
+Utilize this method in your mutation to update the category for a project: `updateProductCategory`.
+
+Don't worry about writing any mutations for users just yet ―― we will do this when we setup user authentication.
+
+### Products belonging to categories
+
+We'll add one last thing to our `CategoryType` before we move on. Add a static method to the `Category` mongoose model which returns all of the products belonging to that category. Now head back into `category_type.js` and add a field for `products` which resolves using the static method you just wrote (remember to return a new `GraphQLList` for an array).
+
+## Phase C: User Authentication
+
+We are going to follow a now-familiar pattern to add user authentication to our project using some of our favorite tools:
+
+* `jsonwebtoken` ―― to generate the tokens
+
+* `bcryptjs` ―― to salt and hash passwords
+
+* `validator` ―― for database validations
+
+```
+npm install jsonwebtoken bcryptjs validator
+```
+
+### Secret key
+
+We need to generate a secret key with which to sign our user's web tokens for authentication. You can write a random string on your own or we recommend using a [website](https://www.uuidgenerator.net/) that generates a string for you. Add the secret key to your `config/keys.js` object under the key `secretOrKey`.
+
+### Validation
+
+Users who register for our application are required to provide a name, email, and password. Users attempting to log in are only required to provide an email and a password. Before we attempt to create or look up a user based on the information they provided, we should perform some server-level validations to ensure the input itself is valid. For example, we want to make sure the user has provided us with a valid email address before we attempt to look up a user by the address. We will accomplish this using the `validator` library.
+
+Within your `server` directory, create a new folder called `validation`. Our validations will be stored here. Unfortunately, `validator` does not provide us with a function to to ensure that our input is a string ―― and it will throw an error if we attempt to pass in the wrong data type. So we'll start by writing a function that can be used to check any input before it is passed to `validator`. Create a new file in `validation` called `valid-text.js` and add the following function:
+
+```js
+const validText = str => {
+  return typeof str === "string" && str.trim().length > 0;
+};
+
+module.exports = validText;
+```
+
+Now we can begin to write validations for `register` and `login`. Create the corresponding files for these validations ―― `register.js` and `login.js` ―― within the `validation` folder. Let's start writing the `login` validation:
+
+```js
+// server/validation/login.js
+
+const Validator = require("validator");
+const validText = require("./valid-text");
+
+module.exports = function validateLoginInput(data) {};
+```
+
+Remember that `login` is passed an email and a password. First, we want to ensure that the function is passed a valid string with a length greater than 0. If the input does not meet those criteria, we simply replace it with an empty string:
+
+```js
+module.exports = function validateLoginInput(data) {
+  data.email = validText(data.email) ? data.email : "";
+  data.password = validText(data.password) ? data.password : "";
+};
+```
+
+Validator provides us with a number of built-in functions we can use to validate our input. These include `isEmail`, `isEmpty`, `isLength`, and `equals`. Let's use a couple of these methods to validate the login input:
+
+```js
+module.exports = function validateLoginInput(data) {
+  data.email = validText(data.email) ? data.email : "";
+  data.password = validText(data.password) ? data.password : "";
+
+  if (!Validator.isEmail(data.email)) {
+    return { message: "Email is invalid", isValid: false };
+  }
+
+  if (Validator.isEmpty(data.email)) {
+    return { message: "Email field is required", isValid: false };
+  }
+
+  if (Validator.isEmpty(data.password)) {
+    return { message: "Password field is required", isValid: false };
+  }
+
+  return {
+    message: "",
+    isValid: true
+  };
+};
+```
+
+We return an object which specifies whether the given input is valid. If it is not, we include a message to render client side errors. If it is valid, we do not need to return a message.
+
+Following this pattern, write a validator for `register.js`. You may want to use some of the other methods available from `validator` such as `isLength` to ensure your password is of a certain length. If you are curious to find more validations you can find a full list of functions [here](https://www.npmjs.com/package/validator).
+
+### Extending the user type
+
+Let's add a couple of fields to our user type. First, add `loggedIn`. The type of this field is a `GraphQLBoolean`. Later on, when we incorporate user authentication in the frontend, `loggedIn` will be stored along with the user object in the Apollo store. We will then be able to check the value of `loggedIn` to determine whether or not to show a user `Auth` and `Protected` routes.
+
+Second, we'll add a `token` field of type `GraphQLString`, which we can use to return the user's signed auth token to the frontend.
+
+```js
+const UserType = new GraphQLObjectType({
+  name: "UserType",
+  fields: {
+    id: { type: GraphQLID },
+    name: { type: GraphQLString },
+    email: { type: GraphQLString },
+    token: { type: GraphQLString },
+    loggedIn: { type: GraphQLBoolean }
+  }
+});
+```
+
+## Register service
+
+Now we can begin by writing some authentication functions. We need to create four of these ―― one to register a new user, another to log in an existing user, one to logout a user, and finally one to verify an existing user's credentials. We will start with the register function, since it will be difficult to write the other three until we have added some users to our database.
+
+Ultimately, we will end up calling these service functions within the resolvers for our auth mutations. Since GraphQL resolvers are well equipped to handle promises, we will write these services as async functions.
+
+Create a new folder in your `server` directory called `services`. Within `services`, create a new file called `auth.js`. We're going to need `bcrypt` and `jsonwebtoken`. We also need our secret signature key, as well as the User model from mongoose. We begin to define our async `register` function, which will take the arguments from the mutation passed in as a data object:
+
+```js
+// server/services/auth.js
+
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const keys = require("../config/keys");
+
+// here we'll be taking in the `data` from our mutation
+const register = async data => {
+  try {
+  } catch (err) {
+    throw err;
+  }
+};
+
+module.exports = { register };
+```
+
+Before we do anything else, we should validate the arguments in the data object using the `register` validator we created in the last step. Import your `validateRegisterInput` function and pass in the `data` object. If validator lets us know that the input is invalid, we will simply throw an error right away using the message it returns:
+
+```js
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const keys = require("../config/keys");
+
+// Validator function
+const validateRegisterInput = require("../validation/register");
+
+const register = async data => {
+  try {
+    /* Run it through our validator which returns if the data isValid
+    and if not, returns a nice message for the client side */
+    const { message, isValid } = validateRegisterInput(data);
+
+    /* If the data we received isn't valid, throw up the error message from 
+    validator */
+    if (!isValid) {
+      throw new Error(message);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
+module.exports = { register };
+```
+
+If the user has passed in valid input, we proceed to check if a user with this email address exists in the database already. If they do, we should throw an error message specifying that the user already exists.
+
+```js
+const register = async data => {
+  try {
+    const { message, isValid } = validateRegisterInput(data);
+
+    if (!isValid) {
+      throw new Error(message);
+    }
+    // Deconstruct our data
+    const { name, email, password } = data;
+
+    /* We want to wait until our model can tell us whether a user exists with 
+    that email */
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      throw new Error("This user already exists");
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+```
+
+If the user has not passed in an existing address, we can create a new user and add them to the database. First, we must hash their password using `bcrypt`. Then we create a new user object using the arguments passed in, along with the hashed password from bcrypt. Finally, we can save the user.
+
+```js
+// hash our password
+const hashedPassword = await bcrypt.hash(password, 10);
+
+// create a new user with all our arguments
+const user = new User(
+  {
+    name,
+    email,
+    password: hashedPassword
+  },
+  err => {
+    if (err) throw err;
+  }
+);
+
+// save our user
+user.save();
+```
+
+When we register a new user, we want to return a `JSON` web token to the frontend (we will also return the user object w/o the password). We can do this by using `jsonwebtoken` to sign the user's `id` with the secret key we generated earlier. We also want to make sure we set the `loggedIn` field to true. Here is the complete method:
+
+```js
+const register = async data => {
+  try {
+    const { message, isValid } = validateRegisterInput(data);
+
+    if (!isValid) {
+      throw new Error(message);
+    }
+
+    const { name, email, password } = data;
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      throw new Error("This user already exists");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new User(
+      {
+        name,
+        email,
+        password: hashedPassword
+      },
+      err => {
+        if (err) throw err;
+      }
+    );
+
+    user.save();
+    // we'll create a token for the user
+    const token = jwt.sign({ id: user._id }, keys.secretOrKey);
+
+    // then return our created token, set loggedIn to be true, null their password, and send the rest of the user
+    return { token, loggedIn: true, ...user._doc, password: null };
+  } catch (err) {
+    throw err;
+  }
+};
+
+module.exports = { register };
+```
+
+### Register Mutation
+
+Now that we have completed the steps to register a user, we can add a `register` mutation which calls the `AuthService.register` async function we just wrote. The mutation accepts a name, email, and password, and returns the result of the async function:
+
+```js
+// schema/mutations.js
+
+// Don't forget to import AuthService
+register: {
+    type: UserType,
+    args: {
+        name: { type: GraphQLString },
+        email: { type: GraphQLString },
+        password: { type: GraphQLString }
+    },
+    resolve(_, args) {
+        return AuthService.register(args);
+    }
+}
+```
+
+Test your new mutation in `GraphiQL`. You should be able to return the user's signed token along with the other user data (except the password of course).
+
+## Logout service
+
+Now that you are able to register a user let's work on being able to log a user out. We'll start by adding another function to `services/auth.js`. This function will basically do the following:
+
+1. Take in an `id` from our mutation and find the user with that `id`
+
+2. Create an empty `token`
+
+3. Send the empty `token`, set `loggedIn` to false and return all the other information a user had
+
+Then we just need to add our logout our mutation to use the `logout` service we just wrote.
+
+```js
+logout: {
+  type: UserType,
+  args: {
+    // all we need to log the user our is an id
+    _id: { type: GraphQLID }
+  },
+  resolve(_, args) {
+    return AuthService.logout(args);
+  }
+},
+```
+
+Now try to register a user ―― and then log that user out! Make sure everything is working before moving on to `login`.
+
+## Login service
+
+Now, let's create a service to log a user into our app. Back in `server/services/auth.js`, create a new async function for login which takes a data argument which it will later be receiving from the `login` mutation. Validate the input and throw an error if necessary.
+
+```js
+const login = async data => {
+  try {
+    // use our other validator we wrote to validate this data
+    const { message, isValid } = validateLoginInput(data);
+
+    if (!isValid) {
+      throw new Error(message);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+```
+
+Next, we retrieve the user with their email address. If the user does not exist in the database, we throw a descriptive error. If we do find an existing user, we compare the password passed into the function with the hashed password we just retrieved from the database (using `bcrypt.compareSync`).
+
+If the password is a match, we create an authentication token using the user's id and our secret key. Then we return the token along with the user data. We also specify that the user is logged in with a boolean, and blank our the password.
+
+### Login mutation
+
+Now we can create the login mutation, which will just accept an email and password:
+
+```js
+// schema/mutations.js
+
+login: {
+    type: UserType,
+    args: {
+        email: { type: GraphQLString },
+        password: { type: GraphQLString }
+    },
+    resolve(_, args) {
+        return AuthService.login(args);
+    }
+},
+```
+
+Test your login mutation with the user you registered in the last step(make sure the user is logged out before trying to log them in!).
+
+### Verifying user credentials
+
+There is one more step to complete before we are finished with user authentication. When allowing an authenticated user to access protected routes on the frontend, we must pass the user's authentication with each request and check its validity. To do this, we will create one final async function and mutation to **verify a user's token**.
+
+The async function is simple. We use `jsonwebtoken` to decode the user's token with our secret password we had saved in `keys.js`. If the token is valid, the decoded object will contain the user's `_id`. Then all we have to do is check our database to see if the user exists. If they do, we specify that the user is logged in. If not, we return `loggedIn` as false:
+
+```js
+const verifyUser = async data => {
+  try {
+    // we take in the token from our mutation
+    const { token } = data;
+    // we decode the token using our secret password to get the
+    // user's id
+    const decoded = jwt.verify(token, keys.secretOrKey);
+    const { id } = decoded;
+
+    // then we try to use the User with the id we just decoded
+    // making sure we await the response
+    const loggedIn = await User.findById(id).then(user => {
+      return user ? true : false;
+    });
+
+    return { loggedIn };
+  } catch (err) {
+    return { loggedIn: false };
+  }
+};
+```
+
+Our last step is to add a `verifyUser` mutation. It will receive a single argument ―― the `token` which will be a GraphQLString:
+
+```js
+verifyUser: {
+    type: UserType,
+    args: {
+        token: { type: GraphQLString }
+    },
+    resolve(_, args) {
+        return AuthService.verifyUser(args);
+    }
+}
+```
+
+Using `GraphiQL`, log in a user and copy their token. Then use that token with your `verifyUser` mutation.
+
+We've successfully set up backend User Authentication using GraphQL.
+
+## Lambda function
+
+In the projects we've created so far, all of the information we needed has been stored in a single database. This hasn't yet allowed us to showcase one of the most useful features of GraphQL ―― the ability to treat it as a layer between multiple sources of data. So for today’s bonus project we will be building something a little different. Now, we will be creating and deploying a lambda function on AWS which will resolve the pricing data on our products.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

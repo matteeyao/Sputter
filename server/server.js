@@ -3,7 +3,7 @@ const models = require("./models");
 const expressGraphQL = require("express-graphql");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
-const db = require("./config/keys.js").MONGO_URI;
+const db = require("../config/keys.js").MONGO_URI;
 const schema = require("./schema/schema");
 
 const app = express();

@@ -808,34 +808,112 @@ Using `GraphiQL`, log in a user and copy their token. Then use that token with y
 
 We've successfully set up backend User Authentication using GraphQL.
 
-## Lambda function
+## AWS setup
 
 In the projects we've created so far, all of the information we needed has been stored in a single database. This hasn't yet allowed us to showcase one of the most useful features of GraphQL ―― the ability to treat it as a layer between multiple sources of data. So for today’s bonus project we will be building something a little different. Now, we will be creating and deploying a lambda function on AWS which will resolve the pricing data on our products.
 
+We're going to write an AWS lambda function to generate a random price for products listed in our application. An AWS lambda allows us to execute code without provisioning or managing an entire server. Essentially, our lambda is a standalone function with its own endpoint which exists to serve a singular purpose ―― returning a random price.
 
+By this point you probably already have an AWS account. If you do have an account skip to the next section. If you do not, do the following steps:
 
+1. Navigate to the [signup page](https://portal.aws.amazon.com/billing/signup#/start) and create an account
 
+2. On the next page, select 'Personal Account' and fill out the form
 
+3. You will have to add a credit or debit card in order to move past the next step. Don't worry, you won't be charged - just take care to protect your secret keys and set a reminder to delete your account within the next 12 months.
 
+4. Verify your phone number on the next page.
 
+Nice once your account is confirmed move on to creating a lambda function!
 
+## Creating a Lambda function
 
+* Once you are signed into your account, navigate to `Services` and search for `Lambda`
 
+* On the functions page, select `Create Function`
 
+* Name the function `generate-price`
 
+* Choose `Ruby` as the runtime
 
+* Choose `Create Function`
 
+The page will generate an inline editor where you can add your Ruby code. We're going to add a simple handler which generates a random price between 1-200 and returns it as a JSON object:
 
+```ruby
+require 'json'
 
+def lambda_handler(event:, context:)
+    rand_cost = 1 + rand(200)
+    price_obj = {cost: rand_cost}
+    { statusCode: 200, body: JSON.generate(price_obj) }
+end
+```
 
+After you've saved the code, scroll up to the `Add Triggers` section. This is where we will setup the endpoint for our Lambda function. Select the `API Gateway` trigger, then scroll down to configure it. Select `Create a new API` from the first box, and for Security choose `Open with API key`. Select `Add`, then `Save` your function again.
 
+AWS will now generate a unique API endpoint and API key for your function. Let's test this out in Postman before we add it to our app:
 
+* Create a new GET request
 
+* Enter the API endpoint as the request URL
 
+* Go to Headers and for the key use `x-api-key` and the API key Amazon generated for you as the value
 
+* Try sending your request a few times. You should receive a random number being returned each time in the body
 
+### Resolving price data
 
+We have a few setup steps before you can extract the data from your new lambda:
 
+* Install the `axios` npm package. We will use axios to make a request to our newly generated lambda function.
 
+* Add a cost field to your Product type in the GraphQL Schema, setting `GraphQLInt` as the type.
 
+* Then in your `config/keys.js` file, add a key named `AWSKey`. Use the API key you generated in the last step as the value
 
+* Import both `axios` and your secret key to `root_query_type.js`
+
+All that remains is to make an `axios` request in the `resolve` function for a product. So we'll be getting the product data from Mongoose like usual, and then making the axios request to fetch the `cost`, then adding the `cost` to the `Product` object before GraphQL returns the complete product from the `RootQuery`.
+
+We first create an `authOptions` object containing the request method, the lambda url, and the header we need to include in our request. We then await the request data, adding the `cost` we retrieve from the lambda function to the product object:
+
+```js
+// root_query_type.js
+
+// we can set our AuthOptions before defining our RootQuery
+    const authOptions = {
+      method: "GET",
+      url:
+        "https://123456.execute-api.us-east-2.amazonaws.com/default/generate-price",
+      headers: {
+        "x-api-key": secrets.AWSKey
+      }
+    };
+
+//...
+// inside the RootQueryType
+
+   product: {
+      type: ProductType,
+      args: { _id: { type: GraphQLID } },
+      resolve(_, args) {
+        // find our product
+        return Product.findById(args._id).then(product => {
+          // then fetch our price using the above options
+          return axios(authOptions).then(res => {
+            // set our cost onto the Product Object
+            product.cost = res.data.cost;
+            // then return the complete product object
+            return product;
+          });
+        });
+      }
+    }
+```
+
+Try this out a few times in `GraphiQL` and make sure that a random cost is generated upon each request for a product.
+
+You'll need to write a similar method for the `products` field. This time, you'll have to iterate over the array of products returned from the server and add a cost field to each of them. Consider using the `map` method to create a new object with cost fields.
+
+Move on to Part Two of this project to learn about frontend authentication and continue making your Online Store application.

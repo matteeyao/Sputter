@@ -12,9 +12,10 @@ const Category = mongoose.model("categories");
 const Product = mongoose.model("products");
 
 // Bonus Phase: Adding the Lambda
-// const axios = require("axios");
-// const secret = require("../../../config/keys");
+const axios = require("axios");
+const secret = require("../../../config/keys");
 
+// We can set our `AuthOptions` before defining our `RootQuery`
 // const authOptions = {
 //   method: "GET",
 //   url: `${YOURLAMBDAURLHERE}`,
@@ -74,11 +75,15 @@ const RootQueryType = new GraphQLObjectType({
         type: ProductType,
         args: { _id: { type: new GraphQLNonNull(GraphQLID) } },
         resolve(_, args) {
+          // Find the product
           return Product.findById(args._id);
-          // Bonus Phase - Adding the Lambda
+          /* Bonus Phase - Adding the Lambda */
           // .then(product => {
+          //   /* Then fetch our price using the above options */    
           //   return axios(authOptions).then(res => {
+          //     /* Set our cost onto the Product object */
           //     product.cost = res.data.cost;
+          //     /* Then return the complete product object */
           //     return product;
           //   });
           // });

@@ -2,13 +2,13 @@ import React from "react";
 import { Switch, Route, Link } from "react-router-dom";
 import AuthRoute from "../util/route_util";
 
-// import Nav from "./Nav";
-// import Login from "./Login";
-// import Register from "./Register";
+import Nav from "./Nav";
+import Login from "./Login";
+import Register from "./Register";
 import ProductIndex from "./products/ProductIndex";
-// import ProductDetail from "./products/ProductDetail";
-// import CreateProduct from "./products/CreateProduct";
-// import Cart from "./cart/Cart";
+import ProductDetail from "./products/ProductDetail";
+import CreateProduct from "./products/CreateProduct";
+import Cart from "./cart/Cart";
 
 const App = () => {
   return (
@@ -16,10 +16,10 @@ const App = () => {
       <h1>
         <Link to="/">Online Store</Link>
       </h1>
-      {/* <Route path="/" component={Nav} /> */}
+      <Route path="/" component={Nav} />
       <Switch>
         <Route exact path="/" component={ProductIndex} />
-        {/* <AuthRoute
+        <AuthRoute
           exact
           path="/products/:productId"
           component={ProductDetail}
@@ -31,14 +31,14 @@ const App = () => {
           component={CreateProduct}
           routeType="protected"
         />
-        <AuthRoute exact path="/cart" component={Cart} routeType="protected" /> */}
+        <AuthRoute exact path="/cart" component={Cart} routeType="protected" />
         <AuthRoute exact path="/login" component={Login} routeType="auth" />
-        {/* <AuthRoute
+        <AuthRoute
           exact
           path="/register"
           component={Register}
           routeType="auth"
-        /> */}
+        />
       </Switch>
     </div>
   );

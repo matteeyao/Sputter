@@ -38,6 +38,9 @@ const client = new ApolloClient({
   }
 });
 
+/* To avoid components` async problems where a component would try to read the
+cache's value of `isLoggedIn` before our mutation goes through we can set it up
+here */
 cache.writeData({
   data: {
     isLoggedIn: false,
@@ -45,9 +48,14 @@ cache.writeData({
   }
 });
 
+/* If we have a token we want to verify the user is actually logged in */
 const token = localStorage.getItem("auth-token");
+
+/* Then if we do have a token we'll go through w/ our mutation */
 if (token) {
   client
+    /* Use the `VERIFY_USER` mutation directly use the returned data to know if
+    the returned user is `loggedIn` */
     .mutate({ mutation: VERIFY_USER, variables: { token } })
     .then(({ data }) => {
       cache.writeData({

@@ -36,8 +36,15 @@ const mutation = new GraphQLObjectType({
         description: { type: GraphQLString },
         weight: { type: GraphQLInt }
       },
-      resolve(_, { name, description, weight }) {
-        return new Product({ name, description, weight }).save();
+      async resolve(_, { name, description, weight }, ctx) {
+        const validUser = await AuthService.verifyUser({ token: ctx.token });
+        if (validUser.loggedIn) {
+          return new Product({ name, description, weight }).save();
+        } else {
+          throw new Error(
+            "Sorry, you need to be logged in to create a product."
+          );
+        }
       }
     },
     deleteProduct: {
@@ -78,21 +85,12 @@ const mutation = new GraphQLObjectType({
         return AuthService.login(args);
       }
     },
-    logout: {
-      type: UserType,
-      args: {
-        _id: { type: GraphQLID }
-      },
-      resolve(_, args) {
-        return AuthService.logout(args);
-      }
-    },
     verifyUser: {
       type: UserType,
       args: {
         token: { type: GraphQLString }
       },
-      resolve(_, args) {
+      async resolve(_, args) {
         return AuthService.verifyUser(args);
       }
     }

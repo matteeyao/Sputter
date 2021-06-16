@@ -20,9 +20,9 @@ const ProductType = new GraphQLObjectType({
             return product.category;
           });
       }
-    }
+    },
     // Bonus Phase: Adding the Lambda
-    // cost: { type: GraphQLInt }
+    cost: { type: GraphQLInt }
   })
 });
 

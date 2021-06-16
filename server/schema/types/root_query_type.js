@@ -16,13 +16,13 @@ const axios = require("axios");
 const secret = require("../../../config/keys");
 
 // We can set our `AuthOptions` before defining our `RootQuery`
-// const authOptions = {
-//   method: "GET",
-//   url: `${YOURLAMBDAURLHERE}`,
-//   headers: {
-//     "x-api-key": secret.AWSKey
-//   }
-// };
+const authOptions = {
+  method: "GET",
+  url: "https://aqn4qnp9q9.execute-api.us-east-2.amazonaws.com/generate-price",
+  headers: {
+    "x-api-key": secret.AWSKey
+  }
+};
 
 const RootQueryType = new GraphQLObjectType({
   name: "RootQueryType",
@@ -56,41 +56,41 @@ const RootQueryType = new GraphQLObjectType({
     products: {
       type: new GraphQLList(ProductType),
       resolve() {
-        return Product.find({});
-        // Bonus Phase - Adding the Lambda
-        //   .then(products => {
-        //     const productsWithCost = products.map(product => {
+        return Product.find({})
+          // Bonus Phase - Adding the Lambda
+          .then(products => {
+            const productsWithCost = products.map(product => {
 
-        //       return axios(authOptions).then(res => {
-        //         product.cost = res.data.cost;
-        //         return product;
-        //       });
-        //     });
+              return axios(authOptions).then(res => {
+                product.cost = Math.round(res.data.cost);
+                return product;
+              });
+            });
 
-        //     return productsWithCost;
-        //   });
-        // }
+            return productsWithCost;
+          });
+        }
       },
       product: {
         type: ProductType,
         args: { _id: { type: new GraphQLNonNull(GraphQLID) } },
         resolve(_, args) {
           // Find the product
-          return Product.findById(args._id);
-          /* Bonus Phase - Adding the Lambda */
-          // .then(product => {
-          //   /* Then fetch our price using the above options */    
-          //   return axios(authOptions).then(res => {
-          //     /* Set our cost onto the Product object */
-          //     product.cost = res.data.cost;
-          //     /* Then return the complete product object */
-          //     return product;
-          //   });
-          // });
+          return Product.findById(args._id)
+            /* Bonus Phase - Adding the Lambda */
+            .then(product => {
+              /* Then fetch our price using the above options */    
+              return axios(authOptions).then(res => {
+                /* Set our cost onto the Product object */
+                product.cost = Math.round(res.data.cost);
+                /* Then return the complete product object */
+                return product;
+              });
+            });
         }
       }
     }
-  })
+  )
 });
 
 module.exports = RootQueryType;

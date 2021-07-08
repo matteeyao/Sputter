@@ -35,6 +35,7 @@ ProductSchema.statics.updateProductCategory = (productId, categoryId) => {
         return oldcategory.save();
       });
     }
+    
     return Category.findById(categoryId).then(newCategory => {
       product.category = newCategory;
       newCategory.products.push(product);

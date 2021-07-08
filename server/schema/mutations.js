@@ -38,6 +38,7 @@ const mutation = new GraphQLObjectType({
       },
       async resolve(_, { name, description, weight }, ctx) {
         const validUser = await AuthService.verifyUser({ token: ctx.token });
+
         if (validUser.loggedIn) {
           return new Product({ name, description, weight }).save();
         } else {
@@ -83,6 +84,15 @@ const mutation = new GraphQLObjectType({
       },
       resolve(_, args) {
         return AuthService.login(args);
+      }
+    },
+    logout: {
+      type: UserType,
+      args: {
+        _id: { type: GraphQLID }
+      },
+      resolve(_, args) {
+        return AuthService.logout(args);
       }
     },
     verifyUser: {

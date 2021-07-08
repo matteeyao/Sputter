@@ -8,8 +8,11 @@ For today's project, we'll be setting up the server for a full stack application
 | Description 	| Products 	| Email     	|
 | Price       	|          	| Password  	|
 | Weight      	|          	| Timestamp 	|
-| User        	|          	|           	|
+| User        	|          	| Image      	|
 | Category    	|          	|           	|
+| Image       	|          	|           	|
+
+<br/>
 
 ## Phase A: Project initialization
 
@@ -22,6 +25,8 @@ Let's start by laying the groundwork for our Node application.
 * Follow the prompts to fill out information about your project. Choose the default entry point of `index.js`
 
 * Let's install some packages we know we'll need. Run `npm install express express-graphql mongoose body-parser --save`
+
+<br/>
 
 ### Express setup
 
@@ -41,6 +46,8 @@ app.listen(port, () => {
 ```
 
 Once you've saved the file, run `node index.js` to ensure that your success message is logged in the console.
+
+<br/>
 
 ### Connecting to MongoDB
 
@@ -137,6 +144,8 @@ const app = require("./server/server");
 
 Running `node index.js`, you should see the success message from MongoDB logged to the console.
 
+<br/>
+
 ### Creating the Models
 
 Create a new `models` folder within your `server` directory to write models for `Product`, `Category`, and `User`. Let's write the `Product` model together:
@@ -203,11 +212,17 @@ require("./Category");
 require("./Product");
 ```
 
+<br/>
+
 ## Phase B: Configuring GraphQL
+
+<br/>
 
 ## Installation
 
 Now that we've set up the basics of Express and Mongo let's add GraphQL to our project. First, run `npm install graphql express-graphql` to install the dependencies you'll need.
+
+<br/>
 
 ### Category schema
 
@@ -244,17 +259,23 @@ const CategoryType = new GraphQLObjectType({
 module.exports = CategoryType;
 ```
 
+<br/>
+
 ### Product type schema
 
 Recall that products have an `_id`, `name`, `category`, `description`, and `weight`. Again, don't worry about the `cost` field for now ―― we will add that later.
+
+<br/>
 
 ### User schema
 
 Users have an `_id`, `name`, and `email` ―― we don't need to be able to query for a user's password.
 
+<br/>
+
 ### Root queries
 
-Now that we've finished all of our schema `types` we can write a `RootQuery` so you will be able to query each type of data. Recalling the schema for a root query, let's configure root queries for singular and multiple `users`, `categories`, or `products`. We've provided the `user` and `users` query for you ―― use those as a guideline for creating `categories` and `products`:
+Now that we've finished all of our schema `types` we can write a `RootQuery` so we will be able to query each type of data. Recalling the schema for a root query, let's configure root queries for singular and multiple `users`, `categories`, or `products`. We've provided the `user` and `users` query for you ―― use those as a guideline for creating `categories` and `products`:
 
 ```js
 // server/schema/types/root_query_type.js
@@ -303,6 +324,8 @@ module.exports = new GraphQLSchema({
 });
 ```
 
+<br/>
+
 ### Server configuration
 
 One last step before we have `GraphQL` up and running ―― we need to configure our server w/ the `expressGraphQL` middleware. Remember, the `expressGraphQL` middleware requires a `GraphQLSchema` instance so we'll pass in the schema just created.
@@ -337,6 +360,8 @@ Before we get any further let's make our lives easier and setup Nodemon to watch
 
 Now, once you started your server, you can open `localhost:5000/graphql` and see your `GraphiQL` interface waiting. Let's write some mutations and seed some data so we can test all the queries we've written so far.
 
+<br/>
+
 ## Mutations setup
 
 Within the `schema` directory, create a new file called `mutations.js`. Add the following code to this file:
@@ -362,6 +387,8 @@ module.exports = new GraphQLSchema({
   mutation
 });
 ```
+
+<br/>
 
 ### Write mutations
 
@@ -411,9 +438,13 @@ Utilize this method in your mutation to update the category for a project: `upda
 
 Don't worry about writing any mutations for users just yet ―― we will do this when we setup user authentication.
 
+<br/>
+
 ### Products belonging to categories
 
 We'll add one last thing to our `CategoryType` before we move on. Add a static method to the `Category` mongoose model which returns all of the products belonging to that category. Now head back into `category_type.js` and add a field for `products` which resolves using the static method you just wrote (remember to return a new `GraphQLList` for an array).
+
+<br/>
 
 ## Phase C: User Authentication
 
@@ -429,9 +460,13 @@ We are going to follow a now-familiar pattern to add user authentication to our 
 npm install jsonwebtoken bcryptjs validator
 ```
 
+<br/>
+
 ### Secret key
 
 We need to generate a secret key with which to sign our user's web tokens for authentication. You can write a random string on your own or we recommend using a [website](https://www.uuidgenerator.net/) that generates a string for you. Add the secret key to your `config/keys.js` object under the key `secretOrKey`.
+
+<br/>
 
 ### Validation
 
@@ -497,6 +532,8 @@ We return an object which specifies whether the given input is valid. If it is n
 
 Following this pattern, write a validator for `register.js`. You may want to use some of the other methods available from `validator` such as `isLength` to ensure your password is of a certain length. If you are curious to find more validations you can find a full list of functions [here](https://www.npmjs.com/package/validator).
 
+<br/>
+
 ### Extending the user type
 
 Let's add a couple of fields to our user type. First, add `loggedIn`. The type of this field is a `GraphQLBoolean`. Later on, when we incorporate user authentication in the frontend, `loggedIn` will be stored along with the user object in the Apollo store. We will then be able to check the value of `loggedIn` to determine whether or not to show a user `Auth` and `Protected` routes.
@@ -515,6 +552,8 @@ const UserType = new GraphQLObjectType({
   }
 });
 ```
+
+<br/>
 
 ## Register service
 
@@ -667,6 +706,8 @@ const register = async data => {
 module.exports = { register };
 ```
 
+<br/>
+
 ### Register Mutation
 
 Now that we have completed the steps to register a user, we can add a `register` mutation which calls the `AuthService.register` async function we just wrote. The mutation accepts a name, email, and password, and returns the result of the async function:
@@ -690,6 +731,8 @@ register: {
 
 Test your new mutation in `GraphiQL`. You should be able to return the user's signed token along with the other user data (except the password of course).
 
+<br/>
+
 ## Logout service
 
 Now that you are able to register a user let's work on being able to log a user out. We'll start by adding another function to `services/auth.js`. This function will basically do the following:
@@ -700,7 +743,7 @@ Now that you are able to register a user let's work on being able to log a user 
 
 3. Send the empty `token`, set `loggedIn` to false and return all the other information a user had
 
-Then we just need to add our logout our mutation to use the `logout` service we just wrote.
+Then we just need to add our logout mutation, using the `logout` service we just wrote.
 
 ```js
 logout: {
@@ -716,6 +759,8 @@ logout: {
 ```
 
 Now try to register a user ―― and then log that user out! Make sure everything is working before moving on to `login`.
+
+<br/>
 
 ## Login service
 
@@ -738,7 +783,9 @@ const login = async data => {
 
 Next, we retrieve the user with their email address. If the user does not exist in the database, we throw a descriptive error. If we do find an existing user, we compare the password passed into the function with the hashed password we just retrieved from the database (using `bcrypt.compareSync`).
 
-If the password is a match, we create an authentication token using the user's id and our secret key. Then we return the token along with the user data. We also specify that the user is logged in with a boolean, and blank our the password.
+If the password is a match, we create an authentication token using the user's id and our secret key. Then we return the token along with the user data. We also specify that the user is logged in with a boolean, and blank out the password.
+
+<br/>
 
 ### Login mutation
 
@@ -759,7 +806,9 @@ login: {
 },
 ```
 
-Test your login mutation with the user you registered in the last step(make sure the user is logged out before trying to log them in!).
+Test your login mutation with the user you registered in the last step (make sure the user is logged out before trying to log them in!).
+
+<br/>
 
 ### Verifying user credentials
 
@@ -808,6 +857,8 @@ Using `GraphiQL`, log in a user and copy their token. Then use that token with y
 
 We've successfully set up backend User Authentication using GraphQL.
 
+<br/>
+
 ## AWS setup
 
 In the projects we've created so far, all of the information we needed has been stored in a single database. This hasn't yet allowed us to showcase one of the most useful features of GraphQL ―― the ability to treat it as a layer between multiple sources of data. So for today’s bonus project we will be building something a little different. Now, we will be creating and deploying a lambda function on AWS which will resolve the pricing data on our products.
@@ -825,6 +876,8 @@ By this point you probably already have an AWS account. If you do have an accoun
 4. Verify your phone number on the next page.
 
 Nice once your account is confirmed move on to creating a lambda function!
+
+<br/>
 
 ## Creating a Lambda function
 
@@ -850,6 +903,18 @@ def lambda_handler(event:, context:)
 end
 ```
 
+```js
+exports.handler = async (event) => {
+    let rand_cost = 1 + Math.random()*200
+    let price_obj = {cost: rand_cost}
+    const response = {
+        statusCode: 200,
+        body: JSON.stringify(price_obj),
+    };
+    return response;
+};
+```
+
 After you've saved the code, scroll up to the `Add Triggers` section. This is where we will setup the endpoint for our Lambda function. Select the `API Gateway` trigger, then scroll down to configure it. Select `Create a new API` from the first box, and for Security choose `Open with API key`. Select `Add`, then `Save` your function again.
 
 AWS will now generate a unique API endpoint and API key for your function. Let's test this out in Postman before we add it to our app:
@@ -861,6 +926,8 @@ AWS will now generate a unique API endpoint and API key for your function. Let's
 * Go to Headers and for the key use `x-api-key` and the API key Amazon generated for you as the value
 
 * Try sending your request a few times. You should receive a random number being returned each time in the body
+
+<br/>
 
 ### Resolving price data
 

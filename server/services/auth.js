@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const User = mongoose.model("users");
 const keys = require("../../config/keys").secretOrKey;
 
-// Validator functions
+/* Validator functions */
 const validateRegisterInput = require("../validation/register");
 const validateLoginInput = require("../validation/login");
 
@@ -20,8 +20,11 @@ const register = async data => {
       throw new Error(message);
     }
 
+    /* Deconstruct our data */
     const { name, email, password } = data;
 
+    /* We want to wait until our model can tell us whether a user exists w/ that
+    email */
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -43,7 +46,7 @@ const register = async data => {
 
     user.save();
 
-    // Create a token for the user
+    /* Create a token for the user */
     const token = jwt.sign({ id: user._id }, keys);
 
     /* Return our created token, set loggedIn to be true, null their password,
@@ -96,9 +99,9 @@ const login = async data => {
 
 const verifyUser = async data => {
   try {
-    // Take in the token from our mutation
+    /* Take in the token from our mutation */
     const { token } = data;
-    // Decode the token using our secret password to get the user's id */
+    /* Decode the token using our secret password to get the user's id */
     const decoded = jwt.verify(token, keys);
     const { id } = decoded;
 

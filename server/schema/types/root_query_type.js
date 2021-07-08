@@ -60,7 +60,6 @@ const RootQueryType = new GraphQLObjectType({
           // Bonus Phase - Adding the Lambda
           .then(products => {
             const productsWithCost = products.map(product => {
-
               return axios(authOptions).then(res => {
                 product.cost = Math.round(res.data.cost);
                 return product;
@@ -69,28 +68,27 @@ const RootQueryType = new GraphQLObjectType({
 
             return productsWithCost;
           });
-        }
-      },
-      product: {
-        type: ProductType,
-        args: { _id: { type: new GraphQLNonNull(GraphQLID) } },
-        resolve(_, args) {
-          // Find the product
-          return Product.findById(args._id)
-            /* Bonus Phase - Adding the Lambda */
-            .then(product => {
-              /* Then fetch our price using the above options */    
-              return axios(authOptions).then(res => {
-                /* Set our cost onto the Product object */
-                product.cost = Math.round(res.data.cost);
-                /* Then return the complete product object */
-                return product;
-              });
+      }
+    },
+    product: {
+      type: ProductType,
+      args: { _id: { type: new GraphQLNonNull(GraphQLID) } },
+      resolve(_, args) {
+        // Find the product
+        return Product.findById(args._id)
+          /* Bonus Phase - Adding the Lambda */
+          .then(product => {
+            /* Then fetch our price using the above options */    
+            return axios(authOptions).then(res => {
+              /* Set our cost onto the Product object */
+              product.cost = Math.round(res.data.cost);
+              /* Then return the complete product object */
+              return product;
             });
-        }
+          });
       }
     }
-  )
+  })
 });
 
 module.exports = RootQueryType;

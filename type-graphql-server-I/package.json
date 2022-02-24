@@ -7,15 +7,24 @@
     "doc": "docs"
   },
   "scripts": {
+    "start": "nodemon --exec ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "apollo-server": "^3.6.3",
     "class-validator": "^0.13.2",
     "graphql": "^15.8.0",
     "reflect-metadata": "^0.1.13",
     "type-graphql": "^1.1.1"
+  },
+  "devDependencies": {
+    "apollo-server-core": "^3.6.3",
+    "nodemon": "^2.0.15",
+    "ts-node": "^10.5.0",
+    "ts-node-dev": "^1.1.8",
+    "typescript": "^4.5.5"
   }
 }

@@ -268,8 +268,74 @@ class RecipeResolver implements ResolverInterface<Recipe> {
 }
 ```
 
+Here is the full implementation of the sample `averageRating` field resolver:
 
+```ts
+@Resolver(of => Recipe)
+class RecipeResolver implements ResolverInterface<Recipe> {
+    // queries and mutations
 
+    @FieldResolver()
+    averageRating(@Root() recipe: Recipe) {
+        const ratingsSum = recipe.ratings.reduce((a, b) => a + b, 0);
+        return recipe.ratings.length ? ratingsSum / recipe.ratings.length : null;
+    }
+}
+```
 
+For simple resolvers like `averageRating` or deprecated fields that behave like aliases, you can create field resolvers inline in the object type class definition:
 
+```ts
+@ObjectType()
+class Recipe {
+    @Field()
+    title: string;
 
+    @Field({ deprecationReason: "Use `title` instead" })
+    get name(): string {
+        return this.title;
+    }
+
+    @Field(type => [Rate])
+    ratings: Rate[];
+
+    @Field(type => Float, { nullable: true })
+    averageRating(@Arg("since") sinceDate: Date): number | null {
+        const ratings = this.ratings.filter(rate => rate.data > sinceDate);
+        if (!ratings.length) return null;
+
+        const ratingsSum = ratings.reduce((a, b) => a + b, 0);
+        return ratingsSum / ratings.length;
+    }
+}
+```
+
+However, if the code is more complicated and has side effects (i.e. api calls, fetching data from a databases), a resolver class method should be used instead. This way we can leverage the dependency injection mechanism, which is really helpful in testing. For example:
+
+```ts
+import { Repository } from "typeorm";
+
+@Resolver(of => Recipe)
+class RecipeResolver implements ResolverInterface<Recipe> {
+    constructor(
+        private userRepository: Repository<User>, // dependency injection
+    ) {}
+
+    @FieldResolver()
+    async author(@Root() recipe: Recipe) {
+        const author = await this.userRepository.findById(recipe.userId);
+        if (!author) throw new SomethingWentWrongError();
+        return author;
+    }
+}
+```
+
+Note that if a field name of a field resolver doesn't exist in the resolver object type, it will create a field in the schema w/ this name. This feature is useful when the field is purely calculable (e.g. `averageRating` from `ratings` array) and to avoid polluting the class signature.
+
+## Resolver inheritance
+
+Resolver class `inheritance` is an advanced topic covered in the [resolver inheritance docs](https://typegraphql.com/docs/inheritance.html#resolvers-inheritance).
+
+## Examples
+
+These code samples are just made up for tutorial purposes. You can find more advanced, real examples in the [examples folder on the repository](https://github.com/MichalLytek/type-graphql/tree/master/examples).

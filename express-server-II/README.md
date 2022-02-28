@@ -295,6 +295,8 @@ If you open up `localhost:5000/graphql` in your browser, you will see an error: 
 
 At this stage, we've done the legwork of configuring our server. Now, we can move on to implementing GraphQL in our simple blogging project. We'll start this process by defining a schema for our application.
 
+### User type
+
 The `graphql/type` module is responsible for defining GraphQL types and schema. You can import from either the `graphql/type` module, or from the root `graphql` module. For this project we'll import from the root `graphql` module (See below for an example)
 
 We will use the `graphql` module to define our first GraphQL type - the one for `User`. Recall that a GraphQL type is like a template for the kind of object you can fetch from your database, and what fields it has. Defining a type is almost like defining a model in an MVC application, but w/ a few additional considerations.

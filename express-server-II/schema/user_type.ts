@@ -1,28 +1,29 @@
-import 'reflect-metadata';
 import {
   buildSchemaSync,
   Field,
   FieldResolver,
+  ID,
   Int,
   ObjectType,
   Query,
   Resolver,
   Root
 } from 'type-graphql';
+import { prop } from '@typegoose/typegoose';
+import { IsEmail } from 'class-validator';
 
-type Recipe {
-  id: ID!
-  title: String!
-  description: String
-  creationDate: Date!
-  ingredients: [String!]!
+@ObjectType()
+export class User {
+  @Field(() => ID)
+  @prop()
+  readonly id: number;
+
+  @Field()
+  @prop()
+  name: string;
+
+  @Field()
+  @IsEmail()
+  @prop()
+  email: string;
 }
-
-type User {
-  id: ID!
-  name: String!
-  email: String!
-  posts: [Post]
-}
-
-export = UserType;

@@ -1,32 +1,65 @@
+import "reflect-metadata";
 // configure express
-import express, { Application, Request, Response } from 'express';
-const app: Application = express();
-
+import express, { Application } from "express";
+import { buildSchema } from 'type-graphql'
 // configure MongoDB, mongoose and the things required
-// import { json } from 'body-parser';
-// import mongoose from 'mongoose';
-// const db = require("./config/keys").mongoURI;;
-
+import { json } from "body-parser";
+import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 // configure GraphQL and schema; remember the capitalization of `GraphQL`!
-// import { graphqlHTTP } from 'express-graphql';
-// import schema from './schema/user_type';
+import { ApolloServer } from "apollo-server-express";
+import { ApolloServerPluginLandingPageProductionDefault } from "apollo-server-core/dist/plugin/landingPage/default";
+import { ApolloServerPluginLandingPageGraphQLPlayground } from "apollo-server-core";
+import * as path from "path";
+import { TypegooseMiddleware } from "./middleware/typegoose-middleware";
 
-// mongoose
-//   .connect(db)
-//   .then(() => console.log("Connected to MongoDB successfully"))
-//   .catch(err => console.log(err));
+const db = require("../config/keys").mongoURI;
+import { User } from "./entities/user";
+import { UserResolver } from "./resolvers/user-resolver";
+import { ObjectIdScalar } from "./types/object-id.scalar";
+import { PostResolver } from "./resolvers/post-resolver";
 
-// using the bodyParser package to parse incoming requests into json
-// app.use(json());
+export interface Context {
+  user: User;
+}
 
-// this is our connection to GraphQL - it takes the schema we configured as an argument 
-// in the object passed to the expressGraphQL function
-// app.use('/graphql', graphqlHTTP({
-//   schema,
-  // allowing us to use GraphiQL in a dev environment
-//   graphiql: true
-// }));
+(async() => {
+  // build the schema
+  const schema = await buildSchema({
+    resolvers: [UserResolver, PostResolver],
+    emitSchemaFile: path.resolve(__dirname, "schema.gql"),
+    // use document converting middleware
+    globalMiddlewares: [TypegooseMiddleware],
+    // use ObjectId scalar mapping
+    scalarsMap: [{ type: ObjectId, scalar: ObjectIdScalar }],
+    validate: false,
+  });
 
-app.get("/", (req: Request, res: Response) => res.send("Hello world"));
+  const app: Application = express();
 
-app.listen(5000, () => console.log('🚀 Server is running on port 5000'));
+  // using the bodyParser package to parse incoming requests into json
+  app.use(json());
+
+  // this is our connection to GraphQL - it takes the schema we configured as an argument 
+  // in the object passed to the expressGraphQL function
+  const server = new ApolloServer({
+    schema,
+    plugins: [
+        process.env.NODE_ENV === 'production'
+            ? ApolloServerPluginLandingPageProductionDefault
+            : ApolloServerPluginLandingPageGraphQLPlayground,
+    ]
+  });
+
+  await server.start();
+
+  // apply middleware to server
+  server.applyMiddleware({ app });
+
+  app.listen(5000, () => console.log('🚀 Server is running on port 5000'));
+
+  mongoose
+    .connect(db)
+    .then(() => console.log("Connected to MongoDB successfully"))
+    .catch(err => console.log(err));
+})();

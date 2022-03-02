@@ -1,15 +1,16 @@
-import { 
-    getModelForClass,
+import {
     prop,
     pre,
     ReturnModelType,
     queryMethod,
     index,
+    Ref
 } from "@typegoose/typegoose";
 import { AsQueryMethod } from "@typegoose/typegoose/lib/types";
 import bcrypt from 'bcrypt';
-import { Field, InputType, ObjectType } from "type-graphql";
-import { IsEmail, MinLength, MaxLength } from "class-validator";
+import { Field, ObjectType } from "type-graphql";
+
+import { Post } from "./post";
 
 function findByEmail(
     this: ReturnModelType<typeof User, QueryHelpers>, email: User["email"]
@@ -17,7 +18,7 @@ function findByEmail(
     return this.findOne({ email });
 }
 
-interface QueryHelpers {
+export interface QueryHelpers {
     findByEmail: AsQueryMethod<typeof findByEmail>
 }
 
@@ -38,7 +39,7 @@ interface QueryHelpers {
 @ObjectType()
 export class User {
     @Field(() => String)
-    _id: string;
+    readonly _id: string;
 
     @Field(() => String)
     @prop({ required: true })
@@ -52,40 +53,10 @@ export class User {
     password: string;
 
     @Field(() => Date)
-    @prop({ default: () => Date.now })
+    @prop({ default: () => Date.now() })
     date: Date;
 
     @Field(() => [Post])
-    @prop({ ref: () => [Post] })
-
-}
-
-export const UserModel = getModelForClass<typeof User, QueryHelpers>(User);
-
-@InputType()
-export class CreateUserInput {
-    @Field(() => String)
-    name: string;
-
-    @Field(() => String)
-    @IsEmail()
-    email: string;
-
-    @Field(() => String)
-    @MinLength(6, {
-        message: "password must be at least 6 characters long"
-    })
-    @MaxLength(50, {
-        message: "password must not be longer than 50 characters"
-    })
-    password: string;
-}
-
-@InputType()
-export class LoginInput {
-    @Field(() => String)
-    email: string
-
-    @Field(() => String)
-    password: string
+    @prop({ ref: () => Post, default: [] })
+    posts: Ref<Post>[];
 }

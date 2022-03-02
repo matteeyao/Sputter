@@ -2,6 +2,125 @@
 
 For the homework tonight we will be walking through how to setup a simple application with Users and Posts using Mongo, Express and GraphQL. In part one of this guide we'll be covering setting up Mongo, Node and Express. The majority of this reading will be review - but we recommend referencing this guide to make sure everything is setup up properly before we add GraphQL into the mix.
 
+## Queries
+
+**User**:
+
+```gql
+{
+	user(userId: "621ee66aa33e12bd1f3532f8") {
+    _id
+    name
+    email
+    posts {
+      _id
+      title
+      body
+    }
+  }
+}
+```
+
+should return:
+
+```json
+{
+  "data": {
+    "user": {
+      "_id": "621ee66aa33e12bd1f3532f8",
+      "name": "Jane Doe",
+      "email": "jane@test.com",
+      "posts": [
+        {
+          "_id": "621ee67ca33e12bd1f3532fa",
+          "title": "Greetings",
+          "body": "Aloha"
+        },
+        {
+          "_id": "621ee693a33e12bd1f3532ff",
+          "title": "Munchies",
+          "body": "Chips, cookies, and more..."
+        }
+      ]
+    }
+  }
+}
+```
+
+## Mutations
+
+**Register**:
+
+```gql
+mutation {
+  register(
+    data: {
+      name: "Jane Doe",
+      email: "jdoe@test.com",
+      password: "password"
+    }
+  ) {
+    _id
+    name
+    email
+  }
+}
+```
+
+should return:
+
+```json
+{
+  "data": {
+    "register": {
+      "_id": "621ee66aa33e12bd1f3532f8",
+      "name": "Jane Doe",
+      "email": "jdoe@test.com"
+    }
+  }
+}
+```
+
+**CreatePost**:
+
+```gql
+mutation {
+  createPost (
+    data: {
+      title: "Munchies",
+      author: "621ee66aa33e12bd1f3532f8",
+      body: "Chips, cookies, and more..."
+    }
+  ) {
+    _id
+    title
+    author {
+      _id
+      name
+    }
+    body
+  }
+}
+```
+
+should return:
+
+```json
+{
+  "data": {
+    "createPost": {
+      "_id": "621e8d7518f3219409c63f90",
+      "title": "Greetings",
+      "author": {
+        "_id": "621ee66aa33e12bd1f3532f8",
+        "name": "Jane Doe",
+      },
+      "body": "Yo yo yo"
+    }
+  }
+}
+```
+
 ## Basic setup
 
 To start, create a folder for your application and open it in your code editor. In the terminal, run `npm init --y` to initialize the project with the default values. Notice that a file named `package.json` has been added to your root directory.
@@ -227,7 +346,7 @@ Let's connect our database to mongoDB. Copy the string you identified in the las
 
 * Add the following code to `keys.js`:
 
-```ts
+```js
 export default {
   mongoURI: 'mongodb+srv://dev:AqTtpqFj2y1bdQqH@merncluster.3susk.mongodb.net/myFirstDatabase?retryWrites=true&w=majority'
 };
@@ -244,7 +363,7 @@ export default {
 
 * Now, we can connect to MongoDB using Mongoose:
 
-```ts
+```js
 mongoose
   .connect(db)
   .then(() => console.log("Connected to MongoDB successfully"))
@@ -261,7 +380,7 @@ DeprecationWarning: current URL string parser is deprecated, and will be removed
 
 Don't worry too much about the reasons for this error. You can remove it by adding a second argument to the mongoose `connect` function:
 
-```ts
+```js
 mongoose
   .connect(db, { useNewUrlParser: true })
   .then(() => console.log("Connected to MongoDB successfully"))
@@ -278,7 +397,7 @@ First, run `npm install graphql express-graphql` (we need `graphql` installed to
 
 You can now get rid of your 'Hello World' route. Import `express-graphql` into your `index.js` file using `const expressGraphQL = require('express-graphql')`. Then, we can configure Express to use `express-graphql` for all requests routed to the `/graphql` endpoint:
 
-```ts
+```js
 // all requests coming in to `graphql` will be handled
 // by the expressGraphQL function from the 'express-graphql' library
 app.use(
@@ -303,16 +422,537 @@ We will use the `graphql` module to define our first GraphQL type - the one for 
 
 Create a new folder named `schema` and within that folder create a file named `user_type.js`. Within it, start by importing `graphql` and the `GraphQLObjectType` module:
 
-```ts
+```js
 import { GraphQLAbstractType } from 'graphql';
 ```
 
 Now we can begin defining `User`. We start by creating a new `GraphQLObjectType` which takes an object as its argument. We must specify a name for the type:
 
-```ts
+```js
 const UserType = new GraphQLObjectType({
   name: "UserType"
 });
 
 module.exports = UserType;
 ```
+
+Since we haven't yet defined the `Post` type, we cannot yet include it in the schema for `User`. However, we can define the remaining fields. In order to do so, we'll need a couple more modules from `graphql`. These modules will tell GraphQL what type of data will be resolved from the type:
+
+```js
+const { GraphQLObjectType, GraphQLiD, GraphQLString } = graphql;
+```
+
+Now, we can add a `fields` key to our type object to define the schema:
+
+```js
+const UserType = new GraphQLObjectType({
+  // capitalize!
+  name: "UserType",
+  // fields refer to everything this Type will be able to return to you. Which means all of the
+  // data associated w/ this type in the database. For our User that is id, email, name, and posts.
+  fields: {
+    id: { type: GraphQLID }, // Mongoose automatically generates an ID field for our models
+    name: { type: GraphQLString },
+    email: { type: GraphQLString }
+  }
+});
+```
+
+So far we have defined the schema for the `User` type - we aren't interacting w/ our backend yet. Now let's go configure a type for our root queries so that we actually return a user from our backend.
+
+## Root Queries
+
+A root query is an entry point into the data which exists in the backend. For each root type we specify, we will need to include a resolver function which tells GraphQL how to access the data on the server. This is where we can start to think about GraphQL as a layer between many backend services - different fields for a single type may resolve to many different locations. For now, however, we're going to keep things simple and resolve to our MongoDB server.
+
+Create a new file within `schema` called `root_query_type.js` and import `graphql` and the `GraphQLObjectType` module. Let's also import `GraphQLList`, which will allow us to specify data be returned as an array:
+
+```js
+const graphql = require("graphql");
+const { GraphQLObjectType, GraphQLList } = graphql;
+```
+
+Let's import `mongoose` so we can access our `User` model in our `resolver` functions:
+
+```js
+const mongoose = require("mongoose");
+
+const User = mongoose.model("user");
+```
+
+Finally, we need to import the `User` type we defined in the last step:
+
+```js
+const UserType = require("./user_type");
+```
+
+Now we have all the tools we need to define our root queries. Specifying the root query type is similar to defining any other type - we just need to make sure to name it correctly. Let's take a look at how we can define a root query which returns a list of all users in our database.
+
+```js
+const RootQuery = new GraphQLObjectType({
+  name: "RootQueryType",
+  fields: {
+    users: {
+      // This is the type we defined in the last step,
+      // wrapped in a GraphQLList to specify that the data will be returned as an array.
+      type: new GraphQLList(UserType),
+      // We must specify a resolve function to tell GraphQL how to access the data.
+      // Even if there are many fields present on a given user,
+      // only the fields we specified on the User type will be returned.
+      resolve() {
+        // This is just a mongoose method
+        return User.find({});
+      }
+    }
+  }
+});
+
+module.exports = RootQuery;
+```
+
+That was pretty easy! Let's try writing a root query to return a specific user.
+
+We can pass in two arguments to the resolve function:
+
+1. `parentValue`: The previous object. This is not typically used in root queries.
+
+2. `args`: An object holding the arguments passed into the query from the frontend.
+
+We don't need to worry about `parentValue` for now, but we will need to pass in an argument for a user's `id`. Since we know we will need an `id` argument to be passed in we can make use of GraphQL's `GraphQLNonNull` type - which is basically just a marker enforcing that values can't be null or an error will be raised. Import `GraphQLNonNull` from `graphql` at the top of the file.
+
+Now we will make use of `args` in order to write the root query for `user`:
+
+```js
+fields: {
+    users: {
+        type: new GraphQLList(UserType),
+        resolve() {
+        return User.find({});
+        }
+    },
+    user: {
+        // We are now querying for a single User, so we don't need to wrap the type in GraphQLList
+        type: UserType,
+        // We must define a type for the arguments which will be passed in to the query.
+        // GraphQLNonNull specifies that the argument must be included
+        args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+        // The args argument represents the *actual* arguments passed into the query
+        resolve(parentValue, args) {
+            return User.findById(args.id)
+        }
+    }
+}
+```
+
+If we want to write this a little more cleanly, we can simply destructure the argument we want:
+
+```js
+user: {
+  type: UserType,
+  args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+  resolve(parentValue, { id }) {
+    return User.findById(id);
+  }
+}
+```
+
+Our first two root queries are complete! There are just a few more steps we need to take before we can test our code. Before moving on, make sure you have exported `RootQuery` from `root_query_type.js`.
+
+## Defining the schema
+
+Although we have defined our root query types, we have not yet defined the schema of our application. Our schema will almost always contain **two** things: our root queries and our mutations. We'll need to make use of the `GraphQLSchema` module from `graphql` in order to define a schema that we can include in our `express-graphql` middleware.
+
+Create a new file within `schema` called `schema.js`. Import `graphql`, the `GraphQLSchema` module, and the root query type:
+
+```js
+const graphql = require("graphql");
+const { graphQLSchema } = graphql;
+
+const RootQueryType = require("./root_query_type");
+```
+
+Now we can finally define the schema for our application:
+
+```js
+module.exports = new GraphQLSchema({
+  // this is the root query object you just created!
+  query: RootQueryType
+})
+```
+
+Let's head back to `index.js` and import our newly defined schema:
+
+```js
+const schema = require("./schema/schema");
+```
+
+Now we can add the schema to the Express middleware:
+
+```js
+app.use(
+  "/graphql",
+  expressGraphQL({
+    schema,
+    graphiql: true
+  })
+);
+```
+
+If you've followed the above steps, you will notice that nodemon has crashed w/ an error: `MissingSchemaError: Schema hasn't been registered for model "user"`. This is b/c we have attempted to access the user model within our root query type before the model has been seen by the app. We can fix this by simply importing the user model into `index.js` *before* the `schema` import line:
+
+```js
+const User = require("./models/user");
+```
+
+Try opening `http://localhost:5000/graphql` in your browser. Now that we have defined a schema, the interface is visible. We are well on our way to testing out some queries.
+
+## Adding dummy data
+
+To test our work so far, we have to actually add some users to our database. Since we haven't yet written a mutation to add users, let's temporarily add an express route where we can post a new user. Comment out your current `body-parser` middleware and add the following code:
+
+```js
+app.use(
+  bodyParser.urlencoded({
+    extended: true
+  })
+);
+
+const router = express.Router();
+
+const createNewUser = router.post("/new", (req, res) =? {
+  User.findOne({ email: req.body.email }).then(user => {
+    if (user) {
+      // Throw a 400 error if the email address already exists
+      return res
+        .status(400)
+        .json({ email: "A user has already registered with this address" });
+    } else {
+      // otherwise create a new user
+      console.log(req.body);
+      const newUserObj = new User({
+        name: req.body.name,
+        email: req.body.email,
+        password: req.body.password
+      });
+
+      newUserObj
+        .save()
+        .then(savedUser => res.json(savedUser))
+        .catch(err => console.log(err));
+    }
+  });
+});
+
+app.use("/users", createNewUser);
+```
+
+Use Postman to add three dummy users to your backend by posting to `users/new` (you can pass your keys and values for creating a user through the `body` tab using `x-www-form-urlencoded` format). Once you've created your three users remove everything from the previous code block and re-add the `bodyparser` middleware. Before moving on, make sure to test both of your root queries in GraphQL - `users` and `user` should now return the users you just created.
+
+For example:
+
+```js
+{
+  users {
+    id,
+    name,
+    email
+  }
+}
+
+{
+  user(id: "12345678abcdef") {
+    name
+  }
+}
+```
+
+Before you move on, repeat the above strategy to seed three posts to your database:
+
+```ts
+app.use(
+  bodyParser.urlencoded({
+    extended: true
+  })
+);
+
+const router = express.Router();
+
+const createNewPost = router.post("/new", (req, res) => {
+  // remember to import your Post model from Mongoose!
+  const newPost = new Post({
+    title: req.body.title,
+    body: req.body.body,
+    date: req.body.date,
+    author: req.body.author
+  });
+
+  newPost
+    .save()
+    .then(savedPost => res.json(savedPost))
+    .catch(err => console.log(err));
+});
+
+app.use("/posts", createNewPost);
+```
+
+Use an `id` from one of your users for a post's author.
+
+## Adding the posts type
+
+Now our application is looking good! We've connected GraphQL to our Mongo backend and can query through Express to return results from the backend.
+
+Our application will become even more interesting once we can query for posts made by users. Meaning we'll need to create a Type for Posts so that GraphQL will be able to properly route our queries. Let's begin by creating a `post_type.js` file within the `schema` directory. Since we have already defined the User type, we an reference a post's author to start writing our first *nested query*! We do this by making use of the `parentValue` argument in our resolve function. The `parentValue` is the **key** to writing nested queries in GraphQL. In this case we'll be getting access to the Post object as our `parent`, which will give us access to a Post's author.
+
+See the example below:
+
+```js
+const graphql = require("graphql");
+const { GraphQLObjectType, GraphQLID, GraphQLString } = graphql;
+const mongoose = require("mongoose");
+
+// grab the user Model so that we can return a User Object in our author field
+const UserType = require("./user_type");
+const User = mongoose.model("user");
+
+const PostType = new GraphQLObjectType({
+  name: "PostType",
+  fields: {
+    id: { type: GraphQLID },
+    title: { type: GraphQLString },
+    body: { type: GraphQLString },
+    author: {
+      // here we have to tell GraphQL we are explicitly returning another type.
+      // The Author field will return a User Type!
+      type: UserType,
+      // we don't need any arguments because parentValue already has the author information
+      resolve(parentValue) {
+        return User.findById(parentValue.author)
+          .then(user => user)
+          .catch(err => null);
+      }
+    }
+  }
+});
+
+module.exports = PostType;
+```
+
+Now, after importing the Post type and Post model to `root_query_type.js`, you can add a root query to index all posts:
+
+```js
+// schema/root_query_type.js - add this under the `fields` key for the RootQueryType
+
+  posts: {
+      // we want all our returned posts in an Array so we use the GraphQLList type
+      type: new GraphQLList(PostType),
+      resolve() {
+        return Post.find({});
+      }
+}
+```
+
+With this root query in place, you should be able to user GraphiQL to query for the author of each post:
+
+```gql
+{
+  posts {
+    title,
+    author {
+      name
+    }
+  }
+}
+```
+
+Now add another field to query for a single post:
+
+```js
+post: {
+  // here we just want to return a single post
+  type: PostType,
+  // we need an id for this query so we'll use GraphQLNonNull
+  args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+  resolve(parentValue, args) {
+    return Post.findById(args.id)
+  }
+}
+```
+
+Now try querying for the title of a single post by `id` along w/ that post's author's name and email. Awesome job! We now have a *nested query* to go from a post to getting information about the author of a post.
+
+However, we can't yet do the opposite - we can't query for a user's posts. We aren't fetching information *bidirectionally*. Let's fix that. Head to `user_type.js` and start by trying to import the `Post` type:
+
+```js
+// schema/user_type.js
+const PostType = require("./post_type");
+```
+
+Before moving on, refresh GraphQL. You will see the following error message:
+
+```json
+{
+  "errors": [
+    {
+      "message": "The type of PostType.author must be Output Type but got: {}."
+    },
+    {
+      "message": "Expected GraphQL named type but got: {}."
+    }
+  ]
+}
+```
+
+This non-helpful error means have created a circular dependency. In the next section, we will learn how to resolve this issue.
+
+## Resolving circular queries
+
+In the last step, when we tried to import the Post type into the User type, we created a circular dependency. This problem arises not from GraphQL, but from Node. A circular dependency is created anytime two different files reference one another, whether directly or indirectly.
+
+Let's breakdown what is in this case:
+
+* Node loads the User type, which requires the Post type
+
+* The Post type requires the User type, which is stored in the cache only as an empty object b/c it isn't done loading yet
+
+* B/c we are using `module.exports`, the Post type keeps a reference to an unused object and never gets the real module
+
+Chaos! Just kidding, things are just loading out of order. In the typical case, we can resolve the issue of a circular dependency by exporting function A before we import function B:
+
+```js
+function A() {}
+
+module.exports = A;
+
+const B = require("./b");
+
+A.example = function() {
+  console.log("This works just fine!");
+};
+```
+
+However, we can simplify things even further for ourselves by leveraging our understanding of JavaScript and ES6. First, we wrap all our `fields` values in a fat arrow function to create a thunk:
+
+```js
+const UserType = new GraphQLObjectType({
+  name: "UserType",
+  // create a closure to create a new scope!
+  fields: () => ({
+    id: { type: GraphQLID },
+    name: { type: GraphQLString },
+    email: { type: GraphQLString }
+  })
+});
+```
+
+Now, we can add our posts field. If we import the Post type directly in the type value field, we will resolve the circular dependency:
+
+```js
+const mongoose = require("mongoose");
+const User = mongoose.model("user");
+
+const UserType = new GraphQLObjectType({
+  name: "UserType",
+  fields: () => ({
+    id: { type: GraphQLID },
+    name: { type: GraphQLString },
+    email: { type: GraphQLString },
+    posts: {
+      // here we are requiring the Post type
+      type: new GraphQLList(require("./post_type")),
+      resolve(parentValue) {
+        return (
+          User.fingById(parentValue.id)
+          /// populate is a mongoose method
+            .populate("posts")
+            .then(user => user.posts)
+        )
+      }
+    }
+  })
+})
+```
+
+## Mutations
+
+Let's write our first mutation together. It's pretty silly to be adding new users to our application through a RESTful endpoint when we have GraphQL configured. Let's create a mutation that will allow us to add users using GraphiQL.
+
+Within your `schema` folder, create a new file called `mutations.js`. Just as w/ the other types we have defined, mutations are defined w/ the `GraphQLObjectType` module. We'll import the necessary packages and define the schema for mutations:
+
+```js
+// schema/mutations.js
+const graphql = require("graphql");
+const { GraphQLObjectType, GraphQLString, GraphQLNonNull } = graphql;
+const mongoose = require("mongoose");
+const UserType = require("./user_type");
+
+const User = mongoose.model("user");
+
+const mutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {}
+});
+
+module.exports = mutation;
+```
+
+Writing a mutation is very similar to writing a root query type. We define the arguments to be passed into into the mutation, then write a resolve function to access the required information from the server:
+
+```js
+const mutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {
+    // this will be the name of this mutation
+    newUser: {
+      // creating a User type
+      type: UserType,
+      args: {
+        // since we need these arguments to make a new user we'll make them GraphQLNonNull
+        name: { type: new GraphQLNonNull(GraphQLString) },
+        email: { type: new GraphQLNonNull(GraphQLString) },
+        password: { type: new GraphQLNonNull(GraphQLString) }
+      },
+      resolve(parentValue, { name, email, password }) {
+        return new User({ name, email, password }).save();
+      }
+    }
+  }
+});
+```
+
+Our resolve functions may become more complex for further mutations, but the basic syntax remains the same.
+
+Now, all we need to do is add our mutation to our application is to add them to our GraphQLSchema:
+
+```js
+// schema/schema.js
+const graphql = require("graphql");
+const { GraphQLSchema } = graphql;
+
+const RootQueryType = require("./root_query_type");
+const mutations = require("./mutations");
+
+// add our mutations to the Schema
+module.exports = new GraphQLSchema({
+  query: RootQueryType,
+  mutation: mutations
+});
+```
+
+Now try adding a user to your application using your new mutation:
+
+```js
+Now try adding a user to your application using your new mutation:
+
+mutation {
+  newUser(name:"name", email: "email", password: "password") {
+    id,
+    name,
+    email
+  }
+}
+```
+
+Amazing job! You've successfully integrated GraphQL into your application. Give yourself a huge pat on the back. 🙌 We'll be covering this pattern again in the upcoming days so don't worry if anything in this process didn't make sense the first time.
+
+## Todos
+
+* Implement mongoose `populate()` method for `@FieldResolvers`
